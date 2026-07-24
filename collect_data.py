@@ -6,7 +6,7 @@ import time
 SAMPLE_RATE = 44100
 WINDOW_SIZE = 2048  # 46.4ms window captures full transient impact & decay
 DATASET_DIR = "dataset"
-CATEGORIES = ["tap", "typing", "desk_tap", "palm_rest", "noise"]
+CATEGORIES = ["tap", "typing", "desk_tap", "palm_rest", "screen_lid", "noise"]
 
 def record_sample(category_name):
     target_dir = os.path.join(DATASET_DIR, category_name)
