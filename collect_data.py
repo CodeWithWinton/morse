@@ -30,8 +30,8 @@ def record_sample(category_name):
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
         
-        # Trigger on volume spike > 2.0 with 0.35s debounce
-        if volume > 2.0 and (current_time - last_trigger_time > 0.35):
+        # Trigger on real volume spike > 4.5 (above ambient noise floor) with 0.35s debounce
+        if volume > 4.5 and (current_time - last_trigger_time > 0.35):
             last_trigger_time = current_time
             sample_count += 1
             filename = os.path.join(target_dir, f"sample_{sample_count:04d}.npy")
