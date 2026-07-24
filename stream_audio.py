@@ -38,8 +38,8 @@ def audio_callback(indata, frames, time_info, status):
         peak = np.max(np.abs(transient))
         crest_factor = peak / rms
         
-        # Candidate Tap Gate (Ultra-Soft Thresholds: Ratio >= 0.85 & Crest >= 1.4)
-        is_candidate_tap = (10.0 <= volume <= 130.0) and (ratio >= 0.85) and (crest_factor >= 1.4)
+        # Feather-Touch Master Gate: Ultra-soft taps (10 <= Vol <= 55) & low plastic click (high_energy < 20.0)
+        is_candidate_tap = (10.0 <= volume <= 55.0) and (ratio >= 0.90) and (high_energy < 20.0) and (crest_factor >= 1.4)
         
         if is_candidate_tap:
             time_since_last = current_time - last_tap_time
