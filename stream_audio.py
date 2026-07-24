@@ -38,13 +38,18 @@ def audio_callback(indata, frames, time_info, status):
             peak = np.max(np.abs(transient))
             crest_factor = peak / rms
             
-            # Precision Production Rule: 18.0 <= Vol <= 130.0 & Ratio >= 2.5 & Crest >= 2.2
-            is_tap = (18.0 <= volume <= 130.0) and (ratio >= 2.5) and (crest_factor >= 2.2)
+            # Soft Tap Boundaries for Double-Tap Pattern Recognition
+            is_candidate_tap = (10.0 <= volume <= 130.0) and (ratio >= 1.8) and (crest_factor >= 1.8)
             
-            if is_tap:
-                print(f"\n🎯 CHASSIS TAP DETECTED! (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
-                actions.execute_action("music")
-                last_tap_time = current_time
+            if is_candidate_tap:
+                time_since_last = current_time - last_tap_time
+                if 0.08 < time_since_last < 0.45:
+                    print(f"\n✌️ DOUBLE-TAP DETECTED! (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
+                    actions.execute_action("music")
+                    last_tap_time = 0
+                else:
+                    print(f" 👆 Tap 1 captured... (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
+                    last_tap_time = current_time
             else:
                 print(f"   [Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
 
