@@ -9,13 +9,13 @@ In [[Morse - Master Hub]], the Machine Learning Model acts as **Stage 2 Verifica
 ## Model Benchmarks (3-Class AI Benchmark)
 Evaluated in `compare_models.py` across 2,988 pristine $46.4\text{ms}$ audio samples (`TAP`, `TYPING`, `NOISE`):
 
-| Model Architecture | Accuracy | Precision | Recall | F1 Score | Inference Latency |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| 🏆 **HistGradientBoosting** | **93.6%** | **93.6%** | **93.6%** | **93.4%** | **$45.86\mu\text{s}$ ($0.04\text{ ms}$)** |
-| **Random Forest (200 trees)** | 88.8% | 89.7% | 88.8% | 88.0% | $30.29\mu\text{s}$ ($0.03\text{ ms}$) |
-| **Extra Trees (200 trees)** | 88.1% | 89.0% | 88.1% | 87.2% | $26.23\mu\text{s}$ ($0.03\text{ ms}$) |
-| **SVM (RBF Kernel)** | 86.5% | 89.5% | 86.5% | 87.2% | $399.80\mu\text{s}$ ($0.40\text{ ms}$) |
-| **K-Nearest Neighbors** | 84.9% | 85.5% | 84.9% | 83.4% | $206.68\mu\text{s}$ ($0.20\text{ ms}$) |
+| Model Architecture | 80/20 Accuracy | 5-Fold CV F1 Score | F1 Score | Inference Latency |
+| :--- | :--- | :--- | :--- | :--- |
+| 🏆 **HistGradientBoosting** | **93.6%** | **91.5% ± 1.4%** | **93.4%** | **$39.63\mu\text{s}$ ($0.04\text{ ms}$)** |
+| **Random Forest (200 trees)** | 88.8% | 86.0% ± 1.2% | 88.0% | $23.85\mu\text{s}$ ($0.02\text{ ms}$) |
+| **Extra Trees (200 trees)** | 88.1% | 86.1% ± 1.1% | 87.2% | $26.05\mu\text{s}$ ($0.03\text{ ms}$) |
+| **SVM (RBF Kernel)** | 86.5% | 86.2% ± 0.8% | 87.2% | $426.94\mu\text{s}$ ($0.42\text{ ms}$) |
+| **K-Nearest Neighbors** | 84.9% | 81.8% ± 1.2% | 83.4% | $49.70\mu\text{s}$ ($0.05\text{ ms}$) |
 
 ### Classification Performance (`HistGradientBoosting`)
 * **Chassis Tap Recall:** **`100% (1.00)`** — Zero missed taps!

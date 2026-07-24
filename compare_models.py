@@ -56,13 +56,21 @@ def main():
         "K-Nearest Neighbors": KNeighborsClassifier(n_neighbors=5),
     }
     
-    print(f"{'Model':<25} | {'Accuracy':>10} | {'Precision':>10} | {'Recall':>10} | {'F1 Score':>10} | {'Latency':>12}")
-    print("-" * 90)
+    print(f"{'Model':<25} | {'80/20 Acc':>10} | {'5-Fold CV F1':>12} | {'Latency':>12}")
+    print("-" * 75)
     
     best_name, best_model, best_f1 = None, None, -1
     results = {}
     
+    from sklearn.model_selection import StratifiedKFold, cross_val_score
+    cv5 = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    
     for name, clf in models.items():
+        # 5-Fold Cross Validation F1 scores
+        cv_scores = cross_val_score(clf, X, y, cv=cv5, scoring='f1_weighted')
+        mean_cv_f1 = np.mean(cv_scores) * 100
+        std_cv_f1 = np.std(cv_scores) * 100
+        
         clf.fit(X_train, y_train)
         
         # Measure Latency (time per prediction)
@@ -72,11 +80,9 @@ def main():
         
         latency_us = ((end_t - start_t) / len(X_test)) * 1e6
         acc = accuracy_score(y_test, y_pred)
-        prec = precision_score(y_test, y_pred, average='weighted', zero_division=0)
-        rec = recall_score(y_test, y_pred, average='weighted', zero_division=0)
         f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
         
-        print(f"{name:<25} | {acc*100:>9.1f}% | {prec*100:>9.1f}% | {rec*100:>9.1f}% | {f1*100:>9.1f}% | {latency_us:>10.2f} us")
+        print(f"{name:<25} | {acc*100:>9.1f}% | {mean_cv_f1:>7.1f}% ± {std_cv_f1:.1f}% | {latency_us:>10.2f} us")
         
         results[name] = {"acc": acc, "f1": f1, "model": clf, "y_pred": y_pred}
         
