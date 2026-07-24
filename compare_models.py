@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 
 DATASET_DIR = "dataset"
-CATEGORIES = ["tap", "typing", "noise"]
+CATEGORIES = ["tap", "typing", "palm_rest", "noise"]
 
 def extract_features(signal):
     sig = signal.flatten()
@@ -49,11 +49,9 @@ def main():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     
     models = {
-        "Extra Trees": ExtraTreesClassifier(n_estimators=200, random_state=42, class_weight='balanced'),
-        "Random Forest": RandomForestClassifier(n_estimators=200, random_state=42, class_weight='balanced'),
         "HistGradientBoosting": HistGradientBoostingClassifier(max_iter=200, random_state=42),
-        "SVM (RBF)": SVC(kernel='rbf', probability=True, random_state=42, class_weight='balanced'),
-        "K-Nearest Neighbors": KNeighborsClassifier(n_neighbors=5),
+        "Extra Trees": ExtraTreesClassifier(n_estimators=100, random_state=42),
+        "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
     }
     
     print(f"{'Model':<25} | {'80/20 Acc':>10} | {'5-Fold CV F1':>12} | {'Latency':>12}")
@@ -66,6 +64,7 @@ def main():
     cv5 = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     
     for name, clf in models.items():
+        print(f"  Training {name}...", end="", flush=True)
         # 5-Fold Cross Validation F1 scores
         cv_scores = cross_val_score(clf, X, y, cv=cv5, scoring='f1_weighted')
         mean_cv_f1 = np.mean(cv_scores) * 100
@@ -82,7 +81,7 @@ def main():
         acc = accuracy_score(y_test, y_pred)
         f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
         
-        print(f"{name:<25} | {acc*100:>9.1f}% | {mean_cv_f1:>7.1f}% ± {std_cv_f1:.1f}% | {latency_us:>10.2f} us")
+        print(f"\r{name:<25} | {acc*100:>9.1f}% | {mean_cv_f1:>7.1f}% ± {std_cv_f1:.1f}% | {latency_us:>10.2f} us")
         
         results[name] = {"acc": acc, "f1": f1, "model": clf, "y_pred": y_pred}
         
