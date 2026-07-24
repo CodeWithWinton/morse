@@ -59,6 +59,11 @@ def audio_callback(indata, frames, time_info, status):
                 last_tap_time = current_time
                 last_tap_ratio = ratio
         else:
+            # Typing / speech / noise between taps -> cancel any pending Tap 1
+            # ponytail: prevents stale Tap 1 from pairing with a palm rest after typing
+            if last_tap_time > 0:
+                last_tap_time = 0
+                last_tap_ratio = 0.0
             print(f"   [Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
 
 # Explicitly find and select Built-in Microphone hardware device
