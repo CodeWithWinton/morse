@@ -38,10 +38,11 @@ def audio_callback(indata, frames, time_info, status):
             peak = np.max(np.abs(transient))
             crest_factor = peak / rms
             
-            # Impulsive Wind Rejection Rule:
+            # Key Click & Wind Rejection Rule:
+            # Key clicks have High Energy > 20.0 (plastic click sound)
             # Air blowing has Crest < 2.0 (continuous wind turbulence)
-            # Physical chassis tap has Crest >= 2.2 (instantaneous shockwave)
-            is_tap = (10.0 <= volume <= 130.0) and (ratio >= 1.8) and (crest_factor >= 2.2)
+            # Physical chassis tap has High Energy < 15.0 & Crest >= 2.2
+            is_tap = (10.0 <= volume <= 130.0) and (ratio >= 1.8) and (crest_factor >= 2.2) and (high_energy < 15.0)
             
             if is_tap:
                 print(f"\n🎯 CHASSIS TAP DETECTED! (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
