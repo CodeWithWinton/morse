@@ -1,11 +1,20 @@
 # Morse (`-- --- .-. ... .`)
 
-**Concept:** Turn the MacBook chassis (and eventually the surrounding physical desk) into a gesture-sensitive trackpad using the internal accelerometer.
+**Concept:** Turn any laptop's chassis into a gesture-sensitive surface using the internal microphone as a Software-Defined Virtual Accelerometer.
 
 ## Core Pillars
-* [[Core Technology]] - How we actually get the data from the hardware.
-* [[Machine Learning Model]] - How we stop false positives (typing vs tapping).
-* [[Future Roadmap]] - Where this project is going (Desk Mode, Sensor Fusion).
+* [[Core Technology]] — Acoustic Tap Detection via DSP signal processing.
+* [[Hardware Discovery]] — Why we pivoted from the accelerometer to the microphone.
+* [[DSP Engine]] — The FFT frequency analysis pipeline that powers tap detection.
+* [[Machine Learning Model]] — Role of ML in the Cascaded Two-Stage Architecture.
+* [[Auto-Calibration]] — The `morse calibrate` wizard for universal laptop support.
+* [[Architecture]] — Modular codebase design and Cascaded Dual-Engine.
+* [[Open Source Strategy]] — Cross-platform, zero-dependency, FOSS principles.
+* [[Future Roadmap]] — Desk Mode, Spatial Detection, and Windows Port.
 
 ## Why This Matters
-Right now, tap-based apps rely on simple math thresholds (if vibration > 1.2Gs, do action). This leads to massive false positives when typing. Morse solves this by treating it as an Applied Data Science problem.
+Tapping the aluminum body of a laptop creates a distinct low-frequency structural resonance (100–400 Hz) that travels through the metal frame to the internal microphone. By analyzing this acoustic signature using [[DSP Engine|Digital Signal Processing]], Morse can distinguish a physical chassis tap from keyboard typing, TV audio, speech, and ambient room noise — all without any external hardware, cloud APIs, or paid subscriptions.
+
+## Daily Logs
+* [[2026-07-20]] — Project kickoff, accelerometer investigation.
+* [[2026-07-24]] — Acoustic pivot, DSP calibration, acid tests, dataset collection.

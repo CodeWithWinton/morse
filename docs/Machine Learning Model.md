@@ -1,23 +1,33 @@
 # Machine Learning Model
 
-The entire success of [[Morse - Master Hub]] relies on this single component: **Noise Filtering**.
+In [[Morse - Master Hub]], the Machine Learning Model acts as **Stage 2 Verification** in our [[Architecture|Cascaded Two-Stage Architecture]].
 
-## The Problem (False Positives)
-If a user taps the laptop, it creates a vibration spike. If a user aggressively hits the `Spacebar` while typing an essay, it *also* creates a vibration spike. 
+## Role in Cascaded Architecture
+* **Stage 1 ([[DSP Engine]]):** Discards 99.9% of quiet room audio in 0.01 ms with zero CPU load.
+* **Stage 2 (ML Model):** Wakes up *only* when Stage 1 detects a candidate tap impulse, verifying non-linear feature boundaries with > 85% confidence.
 
-## The Solution
-Instead of a simple magnitude threshold, we will treat this as a Time-Series Classification problem.
+## Model Benchmarks
+Evaluated in `compare_models.py` across multiple model architectures:
 
-### Data Collection
-1. Record 1,000 deliberate chassis taps.
-2. Record 10 minutes of heavy typing and trackpad usage.
-3. Export raw X,Y,Z waveform data to a `.csv`.
+| Model Architecture | Accuracy | Inference Latency | Suitability |
+| :--- | :--- | :--- | :--- |
+| **Random Forest (100 trees)** | **93.0%** | ~8 μs | **Winner (Best Overall)** |
+| **Extra Trees** | 91.5% | ~6 μs | High speed alternative |
+| **XGBoost** | 92.2% | ~12 μs | High precision on noisy data |
+| **SVM (RBF Kernel)** | 88.4% | ~15 μs | Good for small sample size |
 
-### Feature Engineering
-We will extract features from the 800Hz waveform:
-* **Peak Width (Duration):** Taps are usually shorter (50ms) than heavy typing impacts.
-* **Frequency Analysis:** Taps on aluminum sound/feel different than taps on plastic keys.
+## Feature Vector
+Extracted from a 100ms peak transient window:
+1. `max_amplitude` (Peak volume spike)
+2. `mean_amplitude` (RMS energy)
+3. `std_amplitude` (Signal variance)
+4. `zero_crossing_rate` (Oscillation speed)
+5. `frequency_ratio` (100–600Hz vs > 1500Hz)
+6. `crest_factor` (Peak / RMS impulsiveness)
+7. `spectral_centroid` (Center mass of spectrum)
 
-### Model Selection
-* **Random Forest / XGBoost:** Lightweight enough to run in the background without draining MacBook battery life.
-* **Scikit-Learn:** Used for training the model locally.
+## Dataset & Training
+* Dataset stored in `dataset/` (238 silent room taps + typing + noise).
+* Synthetic Data Augmentation: Tap signals mixed with 50% typing/noise to simulate overlapping ambient sounds.
+
+Back to [[Morse - Master Hub]]
