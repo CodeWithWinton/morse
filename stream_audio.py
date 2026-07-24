@@ -37,12 +37,12 @@ def audio_callback(indata, frames, time_info, status):
         peak = np.max(np.abs(transient))
         crest_factor = peak / rms
         
-        # Soft Tap Boundaries for Double-Tap Pattern Recognition
-        is_candidate_tap = (10.0 <= volume <= 130.0) and (ratio >= 1.8) and (crest_factor >= 1.6)
+        # Soft Tap Boundaries for Double-Tap Pattern Recognition (Ratio >= 1.35)
+        is_candidate_tap = (10.0 <= volume <= 130.0) and (ratio >= 1.35) and (crest_factor >= 1.5)
         
         if is_candidate_tap:
             time_since_last = current_time - last_tap_time
-            if 0.10 < time_since_last < 0.65:
+            if 0.08 < time_since_last < 0.70:
                 print(f"\n✌️ DOUBLE-TAP DETECTED! (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
                 actions.execute_action("music")
                 last_tap_time = 0
