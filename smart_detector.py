@@ -67,7 +67,7 @@ def main():
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
         
-        if 13.0 <= volume <= 70.0:
+        if 12.0 <= volume <= 70.0:
             event_counter += 1
             
             # Stage 1: Fast DSP Filter
@@ -87,7 +87,7 @@ def main():
             peak = np.max(np.abs(transient))
             crest_factor = peak / rms
             
-            is_dsp_candidate = (13.0 <= volume <= 70.0) and (ratio >= 0.50) and (crest_factor >= 1.2)
+            is_dsp_candidate = (12.0 <= volume <= 70.0) and (ratio >= 0.50) and (crest_factor >= 1.2)
             
             if is_dsp_candidate:
                 # Stage 2: ML Model Verification
@@ -120,8 +120,6 @@ def main():
                     last_tap_ratio = 0.0
             else:
                 print(f"   [DSP Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
-                last_tap_time = 0
-                last_tap_ratio = 0.0
 
     try:
         with sd.InputStream(device=builtin_device_id, samplerate=SAMPLE_RATE, channels=1, callback=callback):
