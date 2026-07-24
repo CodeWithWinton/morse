@@ -35,8 +35,9 @@ def classify_audio_frame(sig, sample_rate=SAMPLE_RATE):
     peak = np.max(np.abs(transient))
     crest_factor = peak / rms
     
-    # Chassis Tap Decision Rule:
-    # Tap Avg Ratio is 1.65 vs Typing Avg Ratio 0.72
-    is_tap = (ratio > 1.35) and (crest_factor > 1.5)
+    # Optimized Physical Aluminum Resonance Rule:
+    # 284 Tap Avg Ratio: 2.33
+    # Typing Avg Ratio: 0.72 | Noise Avg Ratio: 1.11
+    is_tap = (ratio > 1.25)
     
     return is_tap, ratio, crest_factor, volume

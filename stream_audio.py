@@ -1,34 +1,66 @@
 import sounddevice as sd
 import numpy as np
 import time
+import actions
 
 SAMPLE_RATE = 44100
 last_tap_time = 0
 
+event_counter = 0
+
 def audio_callback(indata, frames, time_info, status):
-    global last_tap_time
+    global last_tap_time, event_counter
     sig = indata.flatten()
     volume = np.linalg.norm(sig) * 10
     
-    # 1. Volume threshold check
-    if volume > 4.5:
+    # Check any sound above ambient noise floor and below clipping ceiling
+    if 10.0 <= volume <= 130.0:
         current_time = time.time()
-        # 2. Debounce (350ms)
-        if current_time - last_tap_time > 0.35:
-            # 3. Ponytail DSP: Low-Note (100-400 Hz Chassis Resonance) Filter
-            fft_vals = np.abs(np.fft.rfft(sig))
-            freqs = np.fft.rfftfreq(len(sig), d=1.0/SAMPLE_RATE)
+        if current_time - last_tap_time > 0.3:
+            event_counter += 1
             
-            # Isolate Low Notes (100-400 Hz Chassis Resonance) & High Click Noise (>2000 Hz)
-            bass_energy = np.sum(fft_vals[(freqs >= 100) & (freqs <= 400)])
-            high_energy = np.sum(fft_vals[freqs > 2000])
+            # Isolate Peak Transient Window
+            peak_idx = np.argmax(np.abs(sig))
+            start_idx = max(0, peak_idx - 50)
+            end_idx = min(len(sig), peak_idx + 800)
+            transient = sig[start_idx:end_idx]
             
-            # Production DSP Filter:
-            # 1. Volume > 12.0 & Bass > 20.0 (Chassis structural shockwave)
-            # 2. High Energy < 15.0 (Rejects key slamming plastic clicks)
-            if volume > 12.0 and bass_energy > 20.0 and high_energy < 15.0:
-                print(f"🎯 CHASSIS TAP DETECTED! (Bass: {bass_energy:.1f}, High: {high_energy:.1f}, Vol: {volume:.1f})")
+            fft_vals = np.abs(np.fft.rfft(transient))
+            freqs = np.fft.rfftfreq(len(transient), d=1.0/SAMPLE_RATE)
+            
+            # 120Hz Sub-Bass Wind Cutoff (Eliminates breath plosives < 100Hz)
+            bass_energy = np.sum(fft_vals[(freqs >= 120) & (freqs <= 600)])
+            high_energy = np.sum(fft_vals[freqs > 1500]) + 1e-6
+            ratio = bass_energy / high_energy
+            
+            # Impulsiveness (Peak / RMS)
+            rms = np.sqrt(np.mean(transient**2)) + 1e-6
+            peak = np.max(np.abs(transient))
+            crest_factor = peak / rms
+            
+            # Impulsive Wind Rejection Rule:
+            # Air blowing has Crest < 2.0 (continuous wind turbulence)
+            # Physical chassis tap has Crest >= 2.2 (instantaneous shockwave)
+            is_tap = (10.0 <= volume <= 130.0) and (ratio >= 1.8) and (crest_factor >= 2.2)
+            
+            if is_tap:
+                print(f"\n🎯 CHASSIS TAP DETECTED! (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
+                actions.execute_action("music")
                 last_tap_time = current_time
+            else:
+                print(f"   [Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
+
+# Explicitly find and select Built-in Microphone hardware device
+devices = sd.query_devices()
+builtin_device_id = None
+for i, dev in enumerate(devices):
+    if dev['max_input_channels'] > 0 and ("built-in" in dev['name'].lower() or "macbook" in dev['name'].lower()):
+        builtin_device_id = i
+        print(f"🎙️ Target Hardware: [{i}] {dev['name']}")
+        break
+
+if builtin_device_id is None:
+    print("⚠️ Could not find Built-in Microphone name, using system default.")
 
 print("====================================")
 print("   MORSE - Ponytail DSP Tap Filter  ")
@@ -37,7 +69,7 @@ print("🎙️  Listening to chassis... (Tap metal, type, or ring bell!)")
 print("Press Ctrl+C to stop.\n")
 
 try:
-    with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, callback=audio_callback):
+    with sd.InputStream(device=builtin_device_id, samplerate=SAMPLE_RATE, channels=1, callback=audio_callback):
         sd.sleep(1000000)
 except KeyboardInterrupt:
     print("\nStopping...")

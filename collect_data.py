@@ -23,13 +23,13 @@ def record_sample(category_name):
         volume = np.linalg.norm(indata) * 10
         current_time = time.time()
         
-        # Trigger on volume spike with 0.4s debounce
-        if volume > 4.5 and (current_time - last_trigger_time > 0.4):
+        # Trigger on volume spike in quiet room with 0.35s debounce
+        if volume > 4.0 and (current_time - last_trigger_time > 0.35):
             last_trigger_time = current_time
             sample_count += 1
             filename = os.path.join(target_dir, f"sample_{sample_count:04d}.npy")
             np.save(filename, indata.copy())
-            print(f"✅ Saved sample #{sample_count} -> {filename} (Vol: {volume:.1f})")
+            print(f"✅ Saved sample #{sample_count:04d} -> {filename} (Vol: {volume:.1f})")
 
     try:
         with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, callback=callback):
