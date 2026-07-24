@@ -111,7 +111,8 @@ def main():
                         last_tap_time = current_time
                         last_tap_ratio = ratio
                 else:
-                    print(f"   [ML Blocked: {predicted_label.upper()}] Event #{event_counter:03d} (Conf: {confidence:.1f}%)")
+                    icon = "⌨️" if predicted_label == "typing" else "🔕"
+                    print(f"   [{icon} ML Blocked: {predicted_label.upper()}] Event #{event_counter:03d} (Conf: {confidence:.1f}%)")
             else:
                 print(f"   [DSP Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
 

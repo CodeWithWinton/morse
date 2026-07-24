@@ -9,8 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 
 DATASET_DIR = "dataset"
-SOURCE_CATEGORIES = ["tap", "typing", "desk_tap", "palm_rest", "screen_lid", "noise"]
-BINARY_LABELS = ["tap", "not_tap"]
+CATEGORIES = ["tap", "typing", "noise"]
 
 def extract_features(signal):
     sig = signal.flatten()
@@ -26,30 +25,26 @@ def extract_features(signal):
 def main():
     X, y = [], []
     
-    for cat in SOURCE_CATEGORIES:
+    for label_idx, cat in enumerate(CATEGORIES):
         cat_dir = os.path.join(DATASET_DIR, cat)
         if not os.path.exists(cat_dir):
             continue
         files = [f for f in os.listdir(cat_dir) if f.endswith(".npy")]
-        # Binary: tap = 0, everything else = 1
-        label = 0 if cat == "tap" else 1
         for f in files:
             signal = np.load(os.path.join(cat_dir, f))
             X.append(extract_features(signal))
-            y.append(label)
+            y.append(label_idx)
             
     X = np.array(X)
     y = np.array(y)
     
-    tap_count = np.sum(y == 0)
-    not_tap_count = np.sum(y == 1)
-    
     print("==========================================================================")
-    print("     MORSE - Binary Classifier Benchmark (TAP vs NOT-TAP)                 ")
+    print("     MORSE - 3-Class AI Benchmark (TAP vs TYPING vs NOISE)                 ")
     print("==========================================================================\n")
-    print(f"  TAP      : {tap_count} samples")
-    print(f"  NOT_TAP  : {not_tap_count} samples (typing + desk_tap + palm_rest + screen_lid + noise)")
-    print(f"  TOTAL    : {len(X)} samples\n")
+    for idx, cat in enumerate(CATEGORIES):
+        count = np.sum(y == idx)
+        print(f"  {cat.upper():12s}: {count} samples")
+    print(f"\n  TOTAL        : {len(X)} samples\n")
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     
@@ -96,11 +91,11 @@ def main():
     
     # Print detailed classification report for the winner
     print(f"--- {best_name} Detailed Classification Report ---\n")
-    print(classification_report(y_test, results[best_name]["y_pred"], target_names=BINARY_LABELS))
+    print(classification_report(y_test, results[best_name]["y_pred"], target_names=CATEGORIES))
     
     # Save the winning model
     with open("model.pkl", "wb") as f:
-        pickle.dump({"model": best_model, "categories": BINARY_LABELS, "model_name": best_name}, f)
+        pickle.dump({"model": best_model, "categories": CATEGORIES, "model_name": best_name}, f)
     print(f"✅ Saved winning model ({best_name}) to 'model.pkl'!")
 
 if __name__ == "__main__":
