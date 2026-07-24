@@ -38,8 +38,8 @@ def audio_callback(indata, frames, time_info, status):
         peak = np.max(np.abs(transient))
         crest_factor = peak / rms
         
-        # Feather-Touch Master Gate: Ultra-soft taps (10 <= Vol <= 55) & low plastic click (high_energy < 20.0)
-        is_candidate_tap = (10.0 <= volume <= 55.0) and (ratio >= 0.90) and (high_energy < 20.0) and (crest_factor >= 1.4)
+        # Candidate Tap Gate (Vol: 10-60, Ratio >= 0.85, Crest >= 1.3)
+        is_candidate_tap = (10.0 <= volume <= 60.0) and (ratio >= 0.85) and (crest_factor >= 1.3)
         
         if is_candidate_tap:
             time_since_last = current_time - last_tap_time
@@ -59,11 +59,6 @@ def audio_callback(indata, frames, time_info, status):
                 last_tap_time = current_time
                 last_tap_ratio = ratio
         else:
-            # Typing / speech / noise between taps -> cancel any pending Tap 1
-            # ponytail: prevents stale Tap 1 from pairing with a palm rest after typing
-            if last_tap_time > 0:
-                last_tap_time = 0
-                last_tap_ratio = 0.0
             print(f"   [Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
 
 # Explicitly find and select Built-in Microphone hardware device
