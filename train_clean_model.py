@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 
 DATASET_DIR = "dataset"
-CATEGORIES = ["tap", "typing", "noise"]
+CATEGORIES = ["tap", "typing", "desk_tap", "palm_rest", "noise"]
 
 def extract_features(signal):
     sig = signal.flatten()
@@ -18,14 +18,31 @@ def extract_features(signal):
     fft_vals = np.abs(np.fft.rfft(sig))
     freqs = np.fft.rfftfreq(len(sig), d=1.0/44100)
     
-    low_energy = np.sum(fft_vals[(freqs >= 50) & (freqs <= 600)])
+    low_energy = np.sum(fft_vals[(freqs >= 120) & (freqs <= 600)])
     high_energy = np.sum(fft_vals[freqs > 1500]) + 1e-6
     ratio = low_energy / high_energy
     
     rms = np.sqrt(np.mean(sig**2)) + 1e-6
     crest_factor = max_amp / rms
     
-    return [max_amp, mean_amp, std_amp, zero_crossings, ratio, crest_factor, low_energy, high_energy]
+    # Feature 9: Spectral Centroid (Audio Brightness)
+    spectral_centroid = np.sum(freqs * fft_vals) / (np.sum(fft_vals) + 1e-6)
+    
+    # Feature 10: Spectral Rolloff (85% energy frequency bound)
+    cumsum_energy = np.cumsum(fft_vals)
+    rolloff_idx = np.where(cumsum_energy >= 0.85 * cumsum_energy[-1])[0][0] if len(cumsum_energy) > 0 else 0
+    spectral_rolloff = freqs[rolloff_idx]
+    
+    # Feature 11: Sub-100Hz Wind Turbulence Energy
+    sub100_energy = np.sum(fft_vals[freqs < 100])
+    
+    # Feature 12: Transient Rise Time (in milliseconds)
+    abs_sig = np.abs(sig)
+    peak_idx = np.argmax(abs_sig)
+    rise_samples = peak_idx - np.where(abs_sig[:peak_idx+1] >= 0.1 * max_amp)[0][0] if peak_idx > 0 and len(np.where(abs_sig[:peak_idx+1] >= 0.1 * max_amp)[0]) > 0 else 0
+    rise_time_ms = (rise_samples / 44100.0) * 1000.0
+    
+    return [max_amp, mean_amp, std_amp, zero_crossings, ratio, crest_factor, low_energy, high_energy, spectral_centroid, spectral_rolloff, sub100_energy, rise_time_ms]
 
 def main():
     X, y = [], []

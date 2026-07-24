@@ -4,8 +4,9 @@ import os
 import time
 
 SAMPLE_RATE = 44100
-DURATION = 0.25  # Record 250ms per sample
+WINDOW_SIZE = 2048  # 46.4ms window captures full transient impact & decay
 DATASET_DIR = "dataset"
+CATEGORIES = ["tap", "typing", "desk_tap", "palm_rest", "noise"]
 
 def record_sample(category_name):
     target_dir = os.path.join(DATASET_DIR, category_name)
@@ -17,19 +18,25 @@ def record_sample(category_name):
     
     sample_count = len(os.listdir(target_dir))
     last_trigger_time = 0
+    buffer_history = np.zeros(WINDOW_SIZE)
     
     def callback(indata, frames, time_info, status):
-        nonlocal sample_count, last_trigger_time
-        volume = np.linalg.norm(indata) * 10
+        nonlocal sample_count, last_trigger_time, buffer_history
+        sig = indata.flatten()
+        volume = np.linalg.norm(sig) * 10
         current_time = time.time()
         
-        # Trigger on volume spike in quiet room with 0.35s debounce
+        # Maintain rolling buffer window
+        buffer_history = np.roll(buffer_history, -len(sig))
+        buffer_history[-len(sig):] = sig
+        
+        # Trigger on volume spike with 0.35s debounce
         if volume > 4.0 and (current_time - last_trigger_time > 0.35):
             last_trigger_time = current_time
             sample_count += 1
             filename = os.path.join(target_dir, f"sample_{sample_count:04d}.npy")
-            np.save(filename, indata.copy())
-            print(f"✅ Saved sample #{sample_count:04d} -> {filename} (Vol: {volume:.1f})")
+            np.save(filename, buffer_history.copy())
+            print(f"✅ Saved 46.4ms sample #{sample_count:04d} -> {filename} (Vol: {volume:.1f})")
 
     try:
         with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, callback=callback):
@@ -45,23 +52,22 @@ def main():
         print("   MORSE - ML Dataset Collector     ")
         print("====================================")
         print("Select category to collect:")
-        print("1. Tap (Chassis taps)")
-        print("2. Typing (Keyboard keypresses)")
-        print("3. Noise (Aarti bell, background, speech)")
-        print("4. Exit")
+        for idx, cat in enumerate(CATEGORIES, 1):
+            print(f"{idx}. {cat.replace('_', ' ').title()}")
+        print(f"{len(CATEGORIES)+1}. Exit")
         
-        choice = input("\nEnter choice (1-4): ").strip()
-        if choice == "1":
-            record_sample("tap")
-        elif choice == "2":
-            record_sample("typing")
-        elif choice == "3":
-            record_sample("noise")
-        elif choice == "4":
-            print("Goodbye!")
-            break
+        choice = input(f"\nEnter choice (1-{len(CATEGORIES)+1}): ").strip()
+        if choice.isdigit():
+            c_int = int(choice)
+            if 1 <= c_int <= len(CATEGORIES):
+                record_sample(CATEGORIES[c_int - 1])
+            elif c_int == len(CATEGORIES) + 1:
+                print("Goodbye!")
+                break
+            else:
+                print("Invalid choice, try again.\n")
         else:
-            print("Invalid choice, try again.\n")
+            print("Invalid input.\n")
 
 if __name__ == "__main__":
     main()
