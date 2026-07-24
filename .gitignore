@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Morse dataset and trained model binary
+dataset/
+model.pkl
