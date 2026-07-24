@@ -38,14 +38,14 @@ def audio_callback(indata, frames, time_info, status):
         peak = np.max(np.abs(transient))
         crest_factor = peak / rms
         
-        # Stable Sweet-Spot Candidate Gate (Vol: 12-60, Ratio >= 1.8, Crest >= 1.8)
-        is_candidate_tap = (12.0 <= volume <= 60.0) and (ratio >= 1.8) and (crest_factor >= 1.8)
+        # Calibrated Sweet-Spot Candidate Gate (Vol: 10-60, Ratio >= 1.30, Crest >= 1.4)
+        is_candidate_tap = (10.0 <= volume <= 60.0) and (ratio >= 1.30) and (crest_factor >= 1.4)
         
         if is_candidate_tap:
             time_since_last = current_time - last_tap_time
             if 0.15 < time_since_last < 0.65:
-                # Fail-Safe Verification: Ensure at least one tap has metal chassis resonance (Ratio >= 1.8)
-                if (ratio >= 1.8) or (last_tap_ratio >= 1.8):
+                # Fail-Safe Verification: Ensure at least one tap has metal chassis resonance (Ratio >= 1.30)
+                if (ratio >= 1.30) or (last_tap_ratio >= 1.30):
                     print(f"\n✌️ DOUBLE-TAP DETECTED! (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
                     actions.execute_action("whatsapp")
                     last_tap_time = 0
