@@ -14,8 +14,8 @@ def audio_callback(indata, frames, time_info, status):
     sig = indata.flatten()
     volume = np.linalg.norm(sig) * 10
     
-    # Check sound above soft-touch noise floor and below clipping ceiling
-    if 10.0 <= volume <= 130.0:
+    # Check sound above ultra-soft touch noise floor (4.0) and below clipping ceiling
+    if 4.0 <= volume <= 80.0:
         current_time = time.time()
         event_counter += 1
         
@@ -38,14 +38,14 @@ def audio_callback(indata, frames, time_info, status):
         peak = np.max(np.abs(transient))
         crest_factor = peak / rms
         
-        # Candidate Tap Gate (Vol: 10-60, Ratio >= 0.85, Crest >= 1.3)
-        is_candidate_tap = (10.0 <= volume <= 60.0) and (ratio >= 0.85) and (crest_factor >= 1.3)
+        # Ultra-Soft Candidate Gate (Vol: 4-80, Ratio >= 0.70, Crest >= 1.2)
+        is_candidate_tap = (4.0 <= volume <= 80.0) and (ratio >= 0.70) and (crest_factor >= 1.2)
         
         if is_candidate_tap:
             time_since_last = current_time - last_tap_time
             if 0.05 < time_since_last < 1.0:
-                # Fail-Safe Verification: Ensure at least one tap has metal chassis resonance (Ratio >= 1.0)
-                if (ratio >= 1.0) or (last_tap_ratio >= 1.0):
+                # Fail-Safe Verification: Ensure at least one tap has metal chassis resonance (Ratio >= 0.85)
+                if (ratio >= 0.85) or (last_tap_ratio >= 0.85):
                     print(f"\n✌️ DOUBLE-TAP DETECTED! (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
                     actions.execute_action("whatsapp")
                     last_tap_time = 0

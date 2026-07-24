@@ -28,8 +28,7 @@ def trigger_raycast():
 
 def trigger_whatsapp():
     """Launch or focus WhatsApp on macOS"""
-    script = 'tell application "WhatsApp" to activate'
-    subprocess.run(["osascript", "-e", script], check=False)
+    subprocess.run(["open", "-a", "WhatsApp"], check=False)
 
 def execute_action(action_name="mute"):
     if action_name == "mute":
