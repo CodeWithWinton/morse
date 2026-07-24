@@ -30,16 +30,24 @@ def record_sample(category_name):
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
         
-        # Trigger on volume spike with 0.35s debounce
-        if volume > 4.0 and (current_time - last_trigger_time > 0.35):
+        # Trigger on volume spike > 2.0 with 0.35s debounce
+        if volume > 2.0 and (current_time - last_trigger_time > 0.35):
             last_trigger_time = current_time
             sample_count += 1
             filename = os.path.join(target_dir, f"sample_{sample_count:04d}.npy")
             np.save(filename, buffer_history.copy())
             print(f"✅ Saved 46.4ms sample #{sample_count:04d} -> {filename} (Vol: {volume:.1f})")
 
+    # Explicitly find and select Built-in Microphone hardware device
+    devices = sd.query_devices()
+    builtin_device_id = None
+    for i, dev in enumerate(devices):
+        if dev['max_input_channels'] > 0 and ("built-in" in dev['name'].lower() or "macbook" in dev['name'].lower()):
+            builtin_device_id = i
+            break
+
     try:
-        with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, callback=callback):
+        with sd.InputStream(device=builtin_device_id, samplerate=SAMPLE_RATE, channels=1, callback=callback):
             while True:
                 sd.sleep(1000)
     except KeyboardInterrupt:
