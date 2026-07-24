@@ -43,7 +43,7 @@ def audio_callback(indata, frames, time_info, status):
         
         if is_candidate_tap:
             time_since_last = current_time - last_tap_time
-            if 0.10 < time_since_last < 0.75:
+            if 0.05 < time_since_last < 1.0:
                 # Fail-Safe Verification: Ensure at least one tap has metal chassis resonance (Ratio >= 1.0)
                 if (ratio >= 1.0) or (last_tap_ratio >= 1.0):
                     print(f"\n✌️ DOUBLE-TAP DETECTED! (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
@@ -54,8 +54,8 @@ def audio_callback(indata, frames, time_info, status):
                     print(f"   [Fail-Safe Blocked] Typing key sequence detected (Ratio 1: {last_tap_ratio:.2f}, Ratio 2: {ratio:.2f})")
                     last_tap_time = current_time
                     last_tap_ratio = ratio
-            elif time_since_last <= 0.10 and last_tap_time > 0:
-                # Ignore follow-up ringing blocks from the exact same physical tap (< 100ms)
+            elif time_since_last <= 0.05 and last_tap_time > 0:
+                # Ignore follow-up ringing blocks from the exact same physical tap (< 50ms)
                 pass
             else:
                 print(f" 👆 Tap 1 captured... (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
