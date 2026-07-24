@@ -3,6 +3,7 @@ import numpy as np
 import pickle
 import time
 import os
+import actions
 
 MODEL_PATH = "model.pkl"
 SAMPLE_RATE = 44100
