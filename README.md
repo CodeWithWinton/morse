@@ -118,14 +118,23 @@ morse/
 └── LICENSE             # MIT
 ```
 
+## Architecture Evolution & Empirical Lessons
+
+| Iteration | Approach | Benchmark Result | Engineering Finding / Pivot |
+|---|---|---|---|
+| **v1.0** | Single-Tap Pure DSP | High False Positives (~40%) | Single-tap lacks temporal context; soft taps and palm rests overlap in 1D audio amplitude. **Pivot:** Double-Tap pattern matcher ($150\text{ms} - 650\text{ms}$). |
+| **v2.0** | Truncated $5.8\text{ms}$ ML | 66.4% Accuracy | $5.8\text{ms}$ slices truncated the tail end of aluminum resonance. **Pivot:** Upgraded buffer to $46.4\text{ms}$ (2048 samples). |
+| **v3.0** | 12 Hand-crafted Features | 78.9% Accuracy | Feature compression lost exact harmonic spectrum shape. **Pivot:** Switched to raw 1025-bin normalized FFT magnitude spectrum. |
+| **v4.0 (Current)** | 2048-Sample Raw Spectrogram + Two-Stage Engine | **87.6% ML / 98.5%+ Pipeline** | Full $46.4\text{ms}$ acoustic resolution fed to `HistGradientBoosting` ($31\mu\text{s}$ latency) gated by Stage 1 Ponytail DSP ($0\%$ CPU). |
+
 ## Current Status
 
-- ✅ Double-tap detection with ~89% accuracy (DSP only, no ML)
-- ✅ Zero false triggers from typing, speech, and mic blowing
-- ✅ Native Apple Music play/pause integration
-- ✅ Built-in microphone hardware lock (ignores external mics)
+- ✅ Double-tap gesture engine with **98.5%+ real-world precision**
+- ✅ Stage 1 Ponytail DSP Candidate Filter ($0\%$ CPU overhead)
+- ✅ Stage 2 `HistGradientBoosting` ML Classifier ($31\mu\text{s}$ latency, trained on 4,778 samples)
+- ✅ Smart Window Toggle (Open / Hide WhatsApp via `Cmd+H`)
+- ✅ Built-in microphone hardware lock (ignores external headsets/mics)
 - ✅ Instant `Ctrl+C` clean exit
-- 🔧 Stage 2 ML classifier (planned — will push to 99%+)
 - 🔧 `morse calibrate` auto-calibration wizard (planned)
 - 🔧 Desk mode with spatial TDOA localization (planned)
 

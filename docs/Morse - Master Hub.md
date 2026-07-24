@@ -9,6 +9,7 @@
 * [[Accidental Tap Rejection]] — Rubber feet dampening & double-tap UX pattern protection.
 * [[Desk Mode & Spatial Localization]] — TDOA multi-mic array for left vs. right desk taps.
 * [[Machine Learning Model]] — Role of ML in the Cascaded Two-Stage Architecture.
+* [[Acoustic Lessons & Failed Approaches]] — Empirical post-mortem of failed iterations & architectural evolution.
 * [[Auto-Calibration]] — The `morse calibrate` wizard for universal laptop support.
 * [[Architecture]] — Modular codebase design and Cascaded Dual-Engine.
 * [[Open Source Strategy]] — Cross-platform, zero-dependency, FOSS principles.
