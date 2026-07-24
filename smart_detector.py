@@ -87,7 +87,7 @@ def main():
             peak = np.max(np.abs(transient))
             crest_factor = peak / rms
             
-            is_dsp_candidate = (10.0 <= volume <= 60.0) and (ratio >= 1.30) and (crest_factor >= 1.4)
+            is_dsp_candidate = (10.0 <= volume <= 60.0) and (ratio >= 0.50) and (crest_factor >= 1.2)
             
             if is_dsp_candidate:
                 # Stage 2: ML Model Verification
