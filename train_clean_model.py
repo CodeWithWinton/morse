@@ -1,48 +1,23 @@
 import os
 import numpy as np
 import pickle
-from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 
 DATASET_DIR = "dataset"
-CATEGORIES = ["tap", "typing", "desk_tap", "palm_rest", "screen_lid", "noise"]
+CATEGORIES = ["tap", "typing", "palm_rest", "noise"]
 
 def extract_features(signal):
     sig = signal.flatten()
     max_amp = np.max(np.abs(sig))
-    mean_amp = np.mean(np.abs(sig))
-    std_amp = np.std(sig)
-    zero_crossings = np.sum(np.diff(np.signbit(sig)) != 0)
-    
-    fft_vals = np.abs(np.fft.rfft(sig))
-    freqs = np.fft.rfftfreq(len(sig), d=1.0/44100)
-    
-    low_energy = np.sum(fft_vals[(freqs >= 120) & (freqs <= 600)])
-    high_energy = np.sum(fft_vals[freqs > 1500]) + 1e-6
-    ratio = low_energy / high_energy
-    
     rms = np.sqrt(np.mean(sig**2)) + 1e-6
     crest_factor = max_amp / rms
     
-    # Feature 9: Spectral Centroid (Audio Brightness)
-    spectral_centroid = np.sum(freqs * fft_vals) / (np.sum(fft_vals) + 1e-6)
+    fft_vals = np.abs(np.fft.rfft(sig))
+    fft_norm = fft_vals / (np.max(fft_vals) + 1e-6)
     
-    # Feature 10: Spectral Rolloff (85% energy frequency bound)
-    cumsum_energy = np.cumsum(fft_vals)
-    rolloff_idx = np.where(cumsum_energy >= 0.85 * cumsum_energy[-1])[0][0] if len(cumsum_energy) > 0 else 0
-    spectral_rolloff = freqs[rolloff_idx]
-    
-    # Feature 11: Sub-100Hz Wind Turbulence Energy
-    sub100_energy = np.sum(fft_vals[freqs < 100])
-    
-    # Feature 12: Transient Rise Time (in milliseconds)
-    abs_sig = np.abs(sig)
-    peak_idx = np.argmax(abs_sig)
-    rise_samples = peak_idx - np.where(abs_sig[:peak_idx+1] >= 0.1 * max_amp)[0][0] if peak_idx > 0 and len(np.where(abs_sig[:peak_idx+1] >= 0.1 * max_amp)[0]) > 0 else 0
-    rise_time_ms = (rise_samples / 44100.0) * 1000.0
-    
-    return [max_amp, mean_amp, std_amp, zero_crossings, ratio, crest_factor, low_energy, high_energy, spectral_centroid, spectral_rolloff, sub100_energy, rise_time_ms]
+    return np.concatenate([[max_amp, crest_factor], fft_norm])
 
 def main():
     X, y = [], []
@@ -60,25 +35,30 @@ def main():
     X = np.array(X)
     y = np.array(y)
     
-    print("====================================")
-    print("   MORSE - Training Clean ML Model  ")
-    print("====================================\n")
-    print(f"Total Dataset: {len(X)} samples (238 Silent Taps, 48 Typing, 47 Noise)\n")
+    print("==========================================================================")
+    print("     MORSE - Fast 4-Class AI Model Trainer                               ")
+    print("==========================================================================\n")
+    for idx, cat in enumerate(CATEGORIES):
+        count = np.sum(y == idx)
+        print(f"  {cat.upper():12s}: {count} samples")
+    print(f"\n  TOTAL        : {len(X)} samples\n")
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     
-    clf = RandomForestClassifier(n_estimators=100, random_state=42)
+    clf = HistGradientBoostingClassifier(max_iter=200, random_state=42)
+    print("⏳ Training HistGradientBoosting...", end="", flush=True)
     clf.fit(X_train, y_train)
+    print(" DONE! ✅\n")
     
     y_pred = clf.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
+    acc = accuracy_score(y_test, y_pred)
     
-    print(f"🎯 Random Forest Accuracy: {accuracy * 100:.1f}%\n")
+    print(f"🎯 Model Accuracy: {acc * 100:.1f}%\n")
     print(classification_report(y_test, y_pred, target_names=CATEGORIES))
     
     with open("model.pkl", "wb") as f:
-        pickle.dump({"model": clf, "categories": CATEGORIES}, f)
-    print("✅ Model saved to 'model.pkl'!")
+        pickle.dump({"model": clf, "categories": CATEGORIES, "model_name": "HistGradientBoosting"}, f)
+    print("✅ Successfully saved 4-class winning model to 'model.pkl'!")
 
 if __name__ == "__main__":
     main()
