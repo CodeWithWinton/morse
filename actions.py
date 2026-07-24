@@ -27,8 +27,18 @@ def trigger_raycast():
     subprocess.run(["osascript", "-e", script], check=False)
 
 def trigger_whatsapp():
-    """Launch or focus WhatsApp on macOS"""
-    subprocess.run(["open", "-a", "WhatsApp"], check=False)
+    """Smart WhatsApp Toggle: Open/focus if hidden/background, Hide (Cmd+H) if active."""
+    script = '''
+    tell application "System Events"
+        set frontApp to name of first application process whose frontmost is true
+    end tell
+    if frontApp is "WhatsApp" then
+        tell application "System Events" to set visible of process "WhatsApp" to false
+    else
+        do shell script "open -a WhatsApp"
+    end if
+    '''
+    subprocess.run(["osascript", "-e", script], check=False)
 
 def execute_action(action_name="mute"):
     if action_name == "mute":
@@ -38,7 +48,7 @@ def execute_action(action_name="mute"):
         print("🎵 Executing Action: APPLE MUSIC PLAY / PAUSE")
         trigger_apple_music_playpause()
     elif action_name == "whatsapp":
-        print("💬 Executing Action: OPEN WHATSAPP")
+        print("💬 Executing Action: SMART WHATSAPP TOGGLE (OPEN / HIDE)")
         trigger_whatsapp()
     elif action_name == "next":
         print("⏭️ Executing Action: APPLE MUSIC NEXT TRACK")
