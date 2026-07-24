@@ -99,7 +99,7 @@ def main():
                 
                 if predicted_label == "tap":
                     time_since_last = current_time - last_tap_time
-                    if 0.15 < time_since_last < 1.0:
+                    if 0.06 < time_since_last < 0.60:
                         print(f"\n✌️ DOUBLE-TAP DETECTED! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
                         actions.execute_action("whatsapp")
                         last_tap_time = 0
@@ -113,8 +113,12 @@ def main():
                 else:
                     icon = "⌨️" if predicted_label == "typing" else "🔕"
                     print(f"   [{icon} ML Blocked: {predicted_label.upper()}] Event #{event_counter:03d} (Conf: {confidence:.1f}%)")
+                    last_tap_time = 0
+                    last_tap_ratio = 0.0
             else:
                 print(f"   [DSP Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
+                last_tap_time = 0
+                last_tap_ratio = 0.0
 
     try:
         with sd.InputStream(device=builtin_device_id, samplerate=SAMPLE_RATE, channels=1, callback=callback):
