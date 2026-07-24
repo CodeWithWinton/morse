@@ -13,8 +13,8 @@ def audio_callback(indata, frames, time_info, status):
     sig = indata.flatten()
     volume = np.linalg.norm(sig) * 10
     
-    # Check any sound above ambient noise floor and below clipping ceiling
-    if 10.0 <= volume <= 130.0:
+    # Check any sound above wrist-rest noise floor and below clipping ceiling
+    if 18.0 <= volume <= 130.0:
         current_time = time.time()
         if current_time - last_tap_time > 0.3:
             event_counter += 1
@@ -38,13 +38,8 @@ def audio_callback(indata, frames, time_info, status):
             peak = np.max(np.abs(transient))
             crest_factor = peak / rms
             
-            # 2-Tier Master Rule with Impulsive Crest Filter (Crest >= 2.0):
-            # Tier 1: High Resonance Chassis Tap (Ratio >= 3.0 & Crest >= 2.0)
-            # Tier 2: Soft Chassis Tap (Ratio >= 1.8 & Crest >= 2.0 & High Energy < 35.0)
-            is_tap = (10.0 <= volume <= 130.0) and (crest_factor >= 2.0) and (
-                (ratio >= 3.0) or 
-                (ratio >= 1.8 and high_energy < 35.0)
-            )
+            # Precision Production Rule: 18.0 <= Vol <= 130.0 & Ratio >= 2.5 & Crest >= 2.2
+            is_tap = (18.0 <= volume <= 130.0) and (ratio >= 2.5) and (crest_factor >= 2.2)
             
             if is_tap:
                 print(f"\n🎯 CHASSIS TAP DETECTED! (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
