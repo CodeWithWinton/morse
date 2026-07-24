@@ -97,7 +97,7 @@ def main():
                 confidence = probs[pred_idx] * 100
                 predicted_label = categories[pred_idx]
                 
-                if predicted_label == "tap":
+                if predicted_label == "tap" and confidence >= 70.0:
                     time_since_last = current_time - last_tap_time
                     if 0.06 < time_since_last < 0.60:
                         print(f"\n✌️ DOUBLE-TAP DETECTED! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
