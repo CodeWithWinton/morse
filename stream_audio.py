@@ -47,7 +47,7 @@ def audio_callback(indata, frames, time_info, status):
                 # Fail-Safe Verification: Ensure at least one tap has metal chassis resonance (Ratio >= 1.0)
                 if (ratio >= 1.0) or (last_tap_ratio >= 1.0):
                     print(f"\n✌️ DOUBLE-TAP DETECTED! (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
-                    actions.execute_action("music")
+                    actions.execute_action("whatsapp")
                     last_tap_time = 0
                     last_tap_ratio = 0.0
                 else:

@@ -26,6 +26,11 @@ def trigger_raycast():
     script = 'tell application "System Events" to key code 49 using {option down}'
     subprocess.run(["osascript", "-e", script], check=False)
 
+def trigger_whatsapp():
+    """Launch or focus WhatsApp on macOS"""
+    script = 'tell application "WhatsApp" to activate'
+    subprocess.run(["osascript", "-e", script], check=False)
+
 def execute_action(action_name="mute"):
     if action_name == "mute":
         print("🔊 Executing Action: MUTE / UNMUTE TOGGLE")
@@ -33,6 +38,9 @@ def execute_action(action_name="mute"):
     elif action_name in ["music", "apple_music"]:
         print("🎵 Executing Action: APPLE MUSIC PLAY / PAUSE")
         trigger_apple_music_playpause()
+    elif action_name == "whatsapp":
+        print("💬 Executing Action: OPEN WHATSAPP")
+        trigger_whatsapp()
     elif action_name == "next":
         print("⏭️ Executing Action: APPLE MUSIC NEXT TRACK")
         trigger_apple_music_next()
