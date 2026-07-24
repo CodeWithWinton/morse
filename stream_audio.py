@@ -6,10 +6,11 @@ import actions
 
 SAMPLE_RATE = 44100
 last_tap_time = 0
+last_tap_ratio = 0.0
 event_counter = 0
 
 def audio_callback(indata, frames, time_info, status):
-    global last_tap_time, event_counter
+    global last_tap_time, last_tap_ratio, event_counter
     sig = indata.flatten()
     volume = np.linalg.norm(sig) * 10
     
@@ -37,18 +38,26 @@ def audio_callback(indata, frames, time_info, status):
         peak = np.max(np.abs(transient))
         crest_factor = peak / rms
         
-        # Soft Tap Boundaries for Double-Tap Pattern Recognition (Ratio >= 1.35)
-        is_candidate_tap = (10.0 <= volume <= 130.0) and (ratio >= 1.35) and (crest_factor >= 1.5)
+        # Candidate Tap Gate (Ultra-Soft Thresholds: Ratio >= 0.85 & Crest >= 1.4)
+        is_candidate_tap = (10.0 <= volume <= 130.0) and (ratio >= 0.85) and (crest_factor >= 1.4)
         
         if is_candidate_tap:
             time_since_last = current_time - last_tap_time
-            if 0.08 < time_since_last < 0.70:
-                print(f"\n✌️ DOUBLE-TAP DETECTED! (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
-                actions.execute_action("music")
-                last_tap_time = 0
+            if 0.04 < time_since_last < 0.75:
+                # Fail-Safe Verification: Ensure at least one tap has metal chassis resonance (Ratio >= 1.0)
+                if (ratio >= 1.0) or (last_tap_ratio >= 1.0):
+                    print(f"\n✌️ DOUBLE-TAP DETECTED! (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
+                    actions.execute_action("music")
+                    last_tap_time = 0
+                    last_tap_ratio = 0.0
+                else:
+                    print(f"   [Fail-Safe Blocked] Typing key sequence detected (Ratio 1: {last_tap_ratio:.2f}, Ratio 2: {ratio:.2f})")
+                    last_tap_time = current_time
+                    last_tap_ratio = ratio
             else:
                 print(f" 👆 Tap 1 captured... (Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f})")
                 last_tap_time = current_time
+                last_tap_ratio = ratio
         else:
             print(f"   [Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
 
