@@ -38,12 +38,12 @@ def audio_callback(indata, frames, time_info, status):
             peak = np.max(np.abs(transient))
             crest_factor = peak / rms
             
-            # 2-Tier Aluminum Master Rule:
-            # Tier 1: High Resonance Chassis Tap (Ratio >= 3.0) -> Always Tap
+            # 2-Tier Master Rule with Impulsive Crest Filter (Crest >= 2.0):
+            # Tier 1: High Resonance Chassis Tap (Ratio >= 3.0 & Crest >= 2.0)
             # Tier 2: Soft Chassis Tap (Ratio >= 1.8 & Crest >= 2.0 & High Energy < 35.0)
-            is_tap = (10.0 <= volume <= 130.0) and (
+            is_tap = (10.0 <= volume <= 130.0) and (crest_factor >= 2.0) and (
                 (ratio >= 3.0) or 
-                (ratio >= 1.8 and crest_factor >= 2.0 and high_energy < 35.0)
+                (ratio >= 1.8 and high_energy < 35.0)
             )
             
             if is_tap:
