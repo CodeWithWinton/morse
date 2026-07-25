@@ -19,6 +19,9 @@ def record_sample(category_name):
     last_trigger_time = 0
     buffer_history = np.zeros(WINDOW_SIZE)
     
+    # Lower volume trigger floor for right_palm_rest (1.8 Vol) due to cross-chassis attenuation!
+    min_vol = 1.8 if category_name == "right_palm_rest" else 3.0
+    
     def callback(indata, frames, time_info, status):
         nonlocal sample_count, last_trigger_time, buffer_history
         sig = indata.flatten()
@@ -29,8 +32,8 @@ def record_sample(category_name):
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
         
-        # Trigger on real volume spike > 3.0 (above ambient noise floor) with 0.35s debounce
-        if volume > 3.0 and (current_time - last_trigger_time > 0.35):
+        # Trigger on real volume spike above ambient noise floor with 0.35s debounce
+        if volume > min_vol and (current_time - last_trigger_time > 0.35):
             last_trigger_time = current_time
             sample_count += 1
             filename = os.path.join(target_dir, f"sample_{sample_count:04d}.npy")
