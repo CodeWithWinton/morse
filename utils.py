@@ -111,4 +111,11 @@ def load_dataset_2d(categories):
                 sr = SAMPLE_RATE
             X.append(extract_2d_spectrogram(signal, original_rate=sr))
             y.append(label_idx)
+            
+            # Data Augmentation: For right_palm_rest, generate 1.25x and 0.80x scale copies for volume invariance
+            if cat == "right_palm_rest":
+                X.append(extract_2d_spectrogram(signal * 1.25, original_rate=sr))
+                y.append(label_idx)
+                X.append(extract_2d_spectrogram(signal * 0.80, original_rate=sr))
+                y.append(label_idx)
     return np.array(X), np.array(y)
