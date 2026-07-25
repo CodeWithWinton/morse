@@ -89,17 +89,14 @@ def main():
             peak = np.max(np.abs(transient))
             crest_factor = peak / rms
             
-            # High-Pass Spectral Ratio (> 2500 Hz) to eliminate speaker music & airborne vocal speech
-            hp_energy = np.sum(fft_vals[freqs >= 2500]) + 1e-6
-            total_fft_energy = np.sum(fft_vals) + 1e-6
-            hp_ratio = hp_energy / total_fft_energy
+            # Pre-Impact Baseline Surge Ratio (Impact energy vs 30ms pre-impact baseline energy)
+            pre_impact_start = max(0, peak_idx - 1440) # 30ms pre-impact window at 48kHz
+            pre_impact = buffer_history[pre_impact_start:peak_idx]
+            pre_rms = np.sqrt(np.mean(pre_impact**2)) + 1e-6 if len(pre_impact) > 0 else 1e-6
+            pre_surge_ratio = rms / pre_rms
             
-            # Distance-Aware Dynamic Volume Floor:
-            # Right taps have lower high-frequency ratio (damped across chassis) -> floor 3.5
-            # Left taps have higher high-frequency ratio -> floor 4.8
-            min_vol = 3.5 if hp_ratio < 0.25 else 4.8
-            
-            is_dsp_candidate = (volume >= min_vol) and (volume <= 85.0) and (crest_factor >= 1.18) and (hp_ratio >= 0.06)
+            # Dynamic Criteria: Right taps (damped high-freq) are accepted if pre_surge_ratio >= 1.8
+            is_dsp_candidate = (volume >= 3.2) and (volume <= 85.0) and (crest_factor >= 1.15) and (hp_ratio >= 0.04 or pre_surge_ratio >= 1.8)
             
             if is_dsp_candidate:
                 # Stage 2: ML Model Verification

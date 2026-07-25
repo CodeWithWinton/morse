@@ -27,43 +27,31 @@ wav_int16_raw = np.int16(raw_signal / (np.max(np.abs(raw_signal)) + 1e-6) * 3276
 wavfile.write(raw_filename, SAMPLE_RATE, wav_int16_raw)
 print(f"💾 Saved Raw Audio: [raw_tap.wav](file://{os.path.abspath(raw_filename)})")
 
-# Block-level Spectral Flux Gate (Eliminates overlap-add phase distortion!)
-block_size = 2048
-num_blocks = len(raw_signal) // block_size
+# 10ms Chunk RMS Thresholding (Forces all background noise blocks to absolute digital zero!)
+chunk_size = 480  # 10ms at 48kHz
+num_chunks = len(raw_signal) // chunk_size
+chunk_rms = np.array([np.sqrt(np.mean(raw_signal[i*chunk_size:(i+1)*chunk_size]**2)) for i in range(num_chunks)])
+median_rms = np.median(chunk_rms) + 1e-6
+
 filtered_signal = np.zeros_like(raw_signal)
-prev_spectrum = np.zeros(block_size // 2 + 1)
 
-# Calculate energy for every block across the 3-second recording
-block_energies = [np.sum(raw_signal[b * block_size : (b + 1) * block_size]**2) for b in range(num_blocks)]
-baseline_energy = np.median(block_energies) + 1e-9
-
-for b in range(num_blocks):
-    start = b * block_size
-    end = start + block_size
-    block = raw_signal[start:end]
+for i in range(num_chunks):
+    start = i * chunk_size
+    end = start + chunk_size
+    chunk = raw_signal[start:end]
     
-    block_energy = block_energies[b]
-    surge_ratio = block_energy / baseline_energy
-    
-    rms = np.sqrt(np.mean(block**2)) + 1e-6
-    peak = np.max(np.abs(block))
-    crest = peak / rms
-    
-    # Is it a real physical tap transient surge? (Energy Surge >= 3.0x baseline OR Crest >= 2.0)
-    is_tap = (surge_ratio >= 3.0) or (crest >= 2.0)
-    
-    if is_tap:
-        # Keep physical tap at 100% FULL ORIGINAL VOLUME!
-        filtered_signal[start:end] = block
+    # If 10ms chunk RMS is 2.0x higher than median background noise, keep it!
+    if chunk_rms[i] >= (median_rms * 2.0):
+        filtered_signal[start:end] = chunk
     else:
-        # Mute background music/speech/room noise to DEAD SILENCE (0.0)!
+        # ABSOLUTE DIGITAL ZERO (100% Mute)
         filtered_signal[start:end] = 0.0
 
-# Save 90%+ suppressed audio file with 100% crystal-clear tap sound
+# Save 100% suppressed audio file
 filtered_filename = "filtered_tap.wav"
 wav_int16_filt = np.int16(np.clip(filtered_signal, -1.0, 1.0) * 32767)
 wavfile.write(filtered_filename, SAMPLE_RATE, wav_int16_filt)
-print(f"⚡ Saved 90%+ Suppressed Audio: [filtered_tap.wav](file://{os.path.abspath(filtered_filename)})")
+print(f"⚡ Saved 100% Background-Muted Audio: [filtered_tap.wav](file://{os.path.abspath(filtered_filename)})")
 
 print("\n🎧 LISTEN TO THE DIFFERENCE:")
 print(f"  1. Double-click raw_tap.wav to hear raw mic audio.")
