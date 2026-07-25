@@ -55,9 +55,9 @@ for i in range(num_chunks):
     prev_rms = chunk_rms[i-1] if i > 0 else median_rms
     surge = rms / (prev_rms + 1e-6)
     
-    # Trigger tap hold window ONLY on physical impact surge (Crest >= 2.2 AND Step Surge >= 2.2)
-    # Speech and singing have low Crest (< 1.5) and low Surge (< 1.5) -> MUTED TO DEAD SILENCE!
-    if crest >= 2.2 and surge >= 2.2:
+    # Trigger tap hold window on physical impact (Crest >= 1.8 AND Surge >= 1.5 OR Crest >= 2.0)
+    # Speech & music stay MUTED TO DEAD SILENCE (0.0)!
+    if (crest >= 1.8 and surge >= 1.5) or (crest >= 2.0):
         hold_counter = 6  # Hold open for 60ms to capture full tap body
         
     if hold_counter > 0:
