@@ -92,7 +92,7 @@ def main():
             structural_high_energy = np.sum(fft_vals[freqs >= 2000]) + 1e-6
             structural_transient_ratio = structural_high_energy / (rms + 1e-6)
             
-            is_dsp_candidate = (10.0 <= volume <= 70.0) and (ratio >= 0.12 or structural_transient_ratio >= 1.5) and (crest_factor >= 1.2)
+            is_dsp_candidate = (10.0 <= volume <= 70.0) and (structural_high_energy >= 5.0) and (ratio >= 0.12 or structural_transient_ratio >= 1.5) and (crest_factor >= 1.2)
             
             if is_dsp_candidate:
                 # Stage 2: ML Model Verification
