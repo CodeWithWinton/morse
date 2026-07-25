@@ -48,9 +48,17 @@ for i in range(num_chunks):
     end = start + chunk_size
     chunk = raw_signal[start:end].copy()
     
-    # If 10ms chunk RMS is 1.5x higher than median noise, trigger 60ms hold window!
-    if chunk_rms[i] >= (median_rms * 1.5):
-        hold_counter = 6  # Hold open for 6 consecutive 10ms chunks (60ms)
+    rms = chunk_rms[i]
+    peak = np.max(np.abs(chunk))
+    crest = peak / rms
+    
+    prev_rms = chunk_rms[i-1] if i > 0 else median_rms
+    surge = rms / (prev_rms + 1e-6)
+    
+    # Trigger tap hold window ONLY on physical impact surge (Crest >= 2.2 AND Step Surge >= 2.2)
+    # Speech and singing have low Crest (< 1.5) and low Surge (< 1.5) -> MUTED TO DEAD SILENCE!
+    if crest >= 2.2 and surge >= 2.2:
+        hold_counter = 6  # Hold open for 60ms to capture full tap body
         
     if hold_counter > 0:
         # Preserve full physical tap body!
@@ -60,7 +68,7 @@ for i in range(num_chunks):
         filtered_signal[start:end] = chunk
         hold_counter -= 1
     else:
-        # ABSOLUTE DIGITAL ZERO (100% Mute)
+        # ABSOLUTE DIGITAL ZERO (100% Mute for Speech & Music)
         filtered_signal[start:end] = 0.0
 
 # Save 100% suppressed audio file
