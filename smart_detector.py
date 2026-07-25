@@ -8,13 +8,13 @@ import actions
 
 import hardware_guards
 
-from utils import extract_features, find_builtin_mic, SAMPLE_RATE, WINDOW_SIZE
+from utils import extract_features, extract_2d_spectrogram, find_builtin_mic, SAMPLE_RATE, WINDOW_SIZE
 
-MODEL_PATH = "model.pkl"
+MODEL_PATH = "model_2d.pkl" if os.path.exists("model_2d.pkl") else "model.pkl"
 
 def main():
     if not os.path.exists(MODEL_PATH):
-        print("❌ Model not found! Please run 'python3 compare_models.py' first.")
+        print("❌ Model not found! Please run 'python3 train_2d_spectrogram_model.py' first.")
         return
         
     with open(MODEL_PATH, "rb") as f:
@@ -23,6 +23,7 @@ def main():
     clf = model_data["model"]
     categories = model_data["categories"]
     model_name = model_data.get("model_name", "AI Classifier")
+    feature_type = model_data.get("feature_type", "1d_fft")
     
     # Start native hardware event guards (Keyboard & Trackpad)
     hardware_guards.start_guards()
@@ -34,7 +35,7 @@ def main():
     print("====================================")
     print(f"   MORSE - Smart AI Tap Engine ({model_name})")
     print("====================================")
-    print("🤖 Stage 1 DSP Filter + Stage 2 ML Classifier Active")
+    print(f"🤖 Stage 1 DSP Filter + Stage 2 ML Classifier ({feature_type.upper()}) Active")
     print("🛡️ Multi-Sensor Guards: Keyboard & Trackpad Active")
     print("💬 Action: Smart WhatsApp Toggle (Open / Hide)")
     print("🎙️  Listening to chassis... (Double-tap metal palm rest!)")
@@ -57,7 +58,7 @@ def main():
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
         
-        if 3.5 <= volume <= 85.0:
+        if 3.2 <= volume <= 85.0:
             event_counter += 1
             
             # Check Hardware Suppression Guards (0% CPU)
@@ -104,8 +105,8 @@ def main():
             is_dsp_candidate = (volume >= 3.2) and (volume <= 85.0) and (crest_factor >= 1.15) and (hp_ratio >= 0.04 or pre_surge_ratio >= 1.8)
             
             if is_dsp_candidate:
-                # Stage 2: ML Model Verification
-                features = extract_features(buffer_history)
+                # Stage 2: 2D Spectrogram ML Model Verification
+                features = extract_2d_spectrogram(buffer_history) if feature_type == "2d_spectrogram" else extract_features(buffer_history)
                 pred_idx = clf.predict([features])[0]
                 probs = clf.predict_proba([features])[0]
                 confidence = probs[pred_idx] * 100

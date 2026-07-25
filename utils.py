@@ -37,8 +37,40 @@ def find_builtin_mic():
             return i, dev['name']
     return None, "Default Microphone"
 
+def extract_2d_spectrogram(signal, original_rate=None, n_fft=256, hop_length=128):
+    """Extract normalized 2D STFT Spectrogram matrix (Frequency vs Time) flattened to 1D feature array."""
+    sig = signal.flatten()
+    if original_rate and original_rate != SAMPLE_RATE:
+        num_target_samples = int(len(sig) * SAMPLE_RATE / original_rate)
+        sig = np.interp(
+            np.linspace(0, len(sig), num_target_samples, endpoint=False),
+            np.arange(len(sig)),
+            sig
+        )
+        
+    if len(sig) < WINDOW_SIZE:
+        sig = np.pad(sig, (0, WINDOW_SIZE - len(sig)))
+    elif len(sig) > WINDOW_SIZE:
+        sig = sig[-WINDOW_SIZE:]
+        
+    num_frames = (len(sig) - n_fft) // hop_length + 1
+    spectrogram = []
+    window = np.hanning(n_fft)
+    
+    for i in range(num_frames):
+        start = i * hop_length
+        frame = sig[start:start + n_fft] * window
+        fft_frame = np.abs(np.fft.rfft(frame))
+        spectrogram.append(fft_frame)
+        
+    spec_matrix = np.array(spectrogram).T # 129 bins x 15 time frames = 1935 pixels
+    max_val = np.max(spec_matrix)
+    if max_val > 0:
+        spec_matrix = spec_matrix / max_val
+    return spec_matrix.flatten()
+
 def load_dataset(categories):
-    """Load and extract features for all specified dataset categories."""
+    """Load and extract 1D features for all specified dataset categories."""
     import os
     X, y = [], []
     for label_idx, cat in enumerate(categories):
@@ -49,5 +81,20 @@ def load_dataset(categories):
         for f in files:
             signal = np.load(os.path.join(cat_dir, f))
             X.append(extract_features(signal))
+            y.append(label_idx)
+    return np.array(X), np.array(y)
+
+def load_dataset_2d(categories):
+    """Load and extract 2D Spectrogram features for all specified dataset categories."""
+    import os
+    X, y = [], []
+    for label_idx, cat in enumerate(categories):
+        cat_dir = os.path.join(DATASET_DIR, cat)
+        if not os.path.exists(cat_dir):
+            continue
+        files = [f for f in os.listdir(cat_dir) if f.endswith(".npy")]
+        for f in files:
+            signal = np.load(os.path.join(cat_dir, f))
+            X.append(extract_2d_spectrogram(signal))
             y.append(label_idx)
     return np.array(X), np.array(y)
