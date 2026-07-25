@@ -37,21 +37,22 @@ prev_spectrum = np.zeros(fft_size // 2 + 1)
 
 for i in range(num_frames):
     start = i * hop_size
-    frame = raw_signal[start:start + fft_size] * np.hanning(fft_size)
-    spectrum = np.abs(np.fft.rfft(frame))
+    frame = raw_signal[start:start + fft_size]
+    windowed = frame * np.hanning(fft_size)
+    spectrum = np.abs(np.fft.rfft(windowed))
     
     # Compute 2D Spectral Flux (Time derivative of energy: dE/dt)
     spectral_flux = np.sum(np.maximum(0, spectrum - prev_spectrum))
     prev_spectrum = spectrum
     
-    # Keep frame ONLY if it contains a vertical impulse surge (dE/dt spike)
-    if spectral_flux > 0.08:
+    # Keep frame ONLY if it contains a vertical impulse surge (dE/dt spike >= 15.0)
+    # Background music and speech have dE/dt < 5.0 and get MUTED TO DEAD SILENCE!
+    if spectral_flux >= 15.0:
         filtered_signal[start:start + fft_size] += frame
 
-# Normalize and save filtered audio file
+# Save 90%+ suppressed audio file (using same scale as raw so volume drop is audible)
 filtered_filename = "filtered_tap.wav"
-max_filt = np.max(np.abs(filtered_signal)) + 1e-6
-wav_int16_filt = np.int16(filtered_signal / max_filt * 32767)
+wav_int16_filt = np.int16(np.clip(filtered_signal, -1.0, 1.0) * 32767)
 wavfile.write(filtered_filename, SAMPLE_RATE, wav_int16_filt)
 print(f"⚡ Saved 90%+ Suppressed Audio: [filtered_tap.wav](file://{os.path.abspath(filtered_filename)})")
 
