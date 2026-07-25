@@ -60,11 +60,13 @@ def main():
             
             # Check Hardware Suppression Guards (0% CPU)
             if hardware_guards.is_typing_active(current_time):
-                print(f"   [⌨️ Hardware Blocked: TYPING] Event #{event_counter:03d}")
+                if "--debug" in sys.argv:
+                    print(f"   [⌨️ Hardware Blocked: TYPING] Event #{event_counter:03d}")
                 last_tap_time = 0
                 return
             if hardware_guards.is_trackpad_active(current_time):
-                print(f"   [🖱️ Hardware Blocked: TRACKPAD] Event #{event_counter:03d}")
+                if "--debug" in sys.argv:
+                    print(f"   [🖱️ Hardware Blocked: TRACKPAD] Event #{event_counter:03d}")
                 last_tap_time = 0
                 return
             
@@ -119,22 +121,25 @@ def main():
                             last_tap_ratio = ratio
                             last_tap_volume = volume
                         else:
-                            print(f"   [Volume Mismatch Blocked: Vol {volume:.1f} vs Tap1 {last_tap_volume:.1f}] Event #{event_counter:03d}")
+                            if "--debug" in sys.argv:
+                                print(f"   [Volume Mismatch Blocked: Vol {volume:.1f} vs Tap1 {last_tap_volume:.1f}] Event #{event_counter:03d}")
                             last_tap_time = 0
                             last_tap_ratio = 0.0
                             last_tap_volume = 0.0
                 else:
-                    if predicted_label == "tap":
-                        print(f"   [Low Confidence Tap: {confidence:.1f}%] Event #{event_counter:03d}")
-                    else:
-                        icons = {"typing": "⌨️", "desk_tap": "🪵", "palm_rest": "✋", "noise": "🔕"}
-                        icon = icons.get(predicted_label, "🔕")
-                        print(f"   [{icon} ML Blocked: {predicted_label.upper()}] Event #{event_counter:03d} (Conf: {confidence:.1f}%)")
+                    if "--debug" in sys.argv:
+                        if predicted_label == "tap":
+                            print(f"   [Low Confidence Tap: {confidence:.1f}%] Event #{event_counter:03d}")
+                        else:
+                            icons = {"typing": "⌨️", "desk_tap": "🪵", "palm_rest": "✋", "noise": "🔕"}
+                            icon = icons.get(predicted_label, "🔕")
+                            print(f"   [{icon} ML Blocked: {predicted_label.upper()}] Event #{event_counter:03d} (Conf: {confidence:.1f}%)")
                     last_tap_time = 0
                     last_tap_ratio = 0.0
                     last_tap_volume = 0.0
             else:
-                print(f"   [DSP Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
+                if "--debug" in sys.argv:
+                    print(f"   [DSP Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
 
     try:
         with sd.InputStream(device=builtin_device_id, samplerate=SAMPLE_RATE, channels=1, callback=callback):
