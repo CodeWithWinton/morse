@@ -8,19 +8,9 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 
-DATASET_DIR = "dataset"
-CATEGORIES = ["tap", "typing", "palm_rest", "noise"]
+from utils import extract_features, DATASET_DIR
 
-def extract_features(signal):
-    sig = signal.flatten()
-    max_amp = np.max(np.abs(sig))
-    rms = np.sqrt(np.mean(sig**2)) + 1e-6
-    crest_factor = max_amp / rms
-    
-    fft_vals = np.abs(np.fft.rfft(sig))
-    fft_norm = fft_vals / (np.max(fft_vals) + 1e-6)
-    
-    return np.concatenate([[max_amp, crest_factor], fft_norm])
+CATEGORIES = ["tap", "typing", "palm_rest", "noise"]
 
 def main():
     X, y = [], []

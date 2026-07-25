@@ -5,19 +5,9 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 
-DATASET_DIR = "dataset"
-CATEGORIES = ["tap", "typing", "noise"]
+from utils import extract_features, DATASET_DIR
 
-def extract_features(signal):
-    sig = signal.flatten()
-    max_amp = np.max(np.abs(sig))
-    rms = np.sqrt(np.mean(sig**2)) + 1e-6
-    crest_factor = max_amp / rms
-    
-    fft_vals = np.abs(np.fft.rfft(sig))
-    fft_norm = fft_vals / (np.max(fft_vals) + 1e-6)
-    
-    return np.concatenate([[max_amp, crest_factor], fft_norm])
+CATEGORIES = ["tap", "typing", "noise"]
 
 def main():
     X, y = [], []

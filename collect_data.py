@@ -3,9 +3,8 @@ import numpy as np
 import os
 import time
 
-SAMPLE_RATE = 44100
-WINDOW_SIZE = 2048  # 46.4ms window captures full transient impact & decay
-DATASET_DIR = "dataset"
+from utils import find_builtin_mic, SAMPLE_RATE, WINDOW_SIZE, DATASET_DIR
+
 CATEGORIES = ["tap", "typing", "desk_tap", "palm_rest", "screen_lid", "noise"]
 
 def record_sample(category_name):
@@ -39,12 +38,7 @@ def record_sample(category_name):
             print(f"✅ Saved 46.4ms sample #{sample_count:04d} -> {filename} (Vol: {volume:.1f})")
 
     # Explicitly find and select Built-in Microphone hardware device
-    devices = sd.query_devices()
-    builtin_device_id = None
-    for i, dev in enumerate(devices):
-        if dev['max_input_channels'] > 0 and ("built-in" in dev['name'].lower() or "macbook" in dev['name'].lower()):
-            builtin_device_id = i
-            break
+    builtin_device_id, _ = find_builtin_mic()
 
     try:
         with sd.InputStream(device=builtin_device_id, samplerate=SAMPLE_RATE, channels=1, callback=callback):

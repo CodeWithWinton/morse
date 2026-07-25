@@ -5,23 +5,9 @@ import time
 import os
 import actions
 
-MODEL_PATH = "model.pkl"
-SAMPLE_RATE = 44100
+from utils import extract_features, find_builtin_mic, SAMPLE_RATE, WINDOW_SIZE
 
 MODEL_PATH = "model.pkl"
-SAMPLE_RATE = 44100
-WINDOW_SIZE = 2048
-
-def extract_features(signal):
-    sig = signal.flatten()
-    max_amp = np.max(np.abs(sig))
-    rms = np.sqrt(np.mean(sig**2)) + 1e-6
-    crest_factor = max_amp / rms
-    
-    fft_vals = np.abs(np.fft.rfft(sig))
-    fft_norm = fft_vals / (np.max(fft_vals) + 1e-6)
-    
-    return np.concatenate([[max_amp, crest_factor], fft_norm])
 
 def main():
     if not os.path.exists(MODEL_PATH):
@@ -36,13 +22,8 @@ def main():
     model_name = model_data.get("model_name", "AI Classifier")
     
     # Explicitly find and select Built-in Microphone hardware device
-    devices = sd.query_devices()
-    builtin_device_id = None
-    for i, dev in enumerate(devices):
-        if dev['max_input_channels'] > 0 and ("built-in" in dev['name'].lower() or "macbook" in dev['name'].lower()):
-            builtin_device_id = i
-            print(f"🎙️ Target Hardware: [{i}] {dev['name']}")
-            break
+    builtin_device_id, dev_name = find_builtin_mic()
+    print(f"🎙️ Target Hardware: [{builtin_device_id}] {dev_name}")
 
     print("====================================")
     print(f"   MORSE - Smart AI Tap Engine ({model_name})")
