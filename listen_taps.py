@@ -38,14 +38,25 @@ for b in range(num_blocks):
     end = start + block_size
     block = raw_signal[start:end]
     
-    spectrum = np.abs(np.fft.rfft(block * np.hanning(block_size)))
-    spectral_flux = np.sum(np.maximum(0, spectrum - prev_spectrum))
-    prev_spectrum = spectrum
+    rms = np.sqrt(np.mean(block**2)) + 1e-6
+    peak = np.max(np.abs(block))
+    crest = peak / rms
     
-    # Keep block ONLY if it contains a vertical impulse surge (dE/dt >= 12.0)
-    # Background music and speech have dE/dt < 5.0 and get MUTED TO DEAD SILENCE!
-    if spectral_flux >= 12.0:
+    fft_vals = np.abs(np.fft.rfft(block * np.hanning(block_size)))
+    freqs = np.fft.rfftfreq(block_size, d=1.0/SAMPLE_RATE)
+    
+    hp_energy = np.sum(fft_vals[freqs >= 2500]) + 1e-6
+    hp_ratio = hp_energy / (np.sum(fft_vals) + 1e-6)
+    
+    # Is it a real physical tap impulse? (Crest >= 2.2 OR High-Pass >= 18%)
+    is_tap = (crest >= 2.2) or (hp_ratio >= 0.18 and crest >= 1.6)
+    
+    if is_tap:
+        # Keep physical tap at 100% full volume!
         filtered_signal[start:end] = block
+    else:
+        # Suppress background music/speech by 99% (0.01x volume)!
+        filtered_signal[start:end] = block * 0.01
 
 # Save 90%+ suppressed audio file with 100% crystal-clear tap sound
 filtered_filename = "filtered_tap.wav"
