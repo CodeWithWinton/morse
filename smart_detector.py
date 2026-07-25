@@ -98,7 +98,7 @@ def main():
                 confidence = probs[pred_idx] * 100
                 predicted_label = categories[pred_idx]
                 
-                if predicted_label == "tap" and confidence >= 85.0:
+                if predicted_label == "tap" and confidence >= 75.0:
                     time_since_last = current_time - last_tap_time
                     vol_ratio = volume / (last_tap_volume + 1e-6)
                     
