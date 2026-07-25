@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 
 DATASET_DIR = "dataset"
-CATEGORIES = ["tap", "typing", "palm_rest", "noise"]
+CATEGORIES = ["tap", "typing", "noise"]
 
 def extract_features(signal):
     sig = signal.flatten()
