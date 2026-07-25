@@ -8,25 +8,12 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 
-from utils import extract_features, DATASET_DIR
+from utils import load_dataset, DATASET_DIR
 
 CATEGORIES = ["tap", "typing", "palm_rest", "noise"]
 
 def main():
-    X, y = [], []
-    
-    for label_idx, cat in enumerate(CATEGORIES):
-        cat_dir = os.path.join(DATASET_DIR, cat)
-        if not os.path.exists(cat_dir):
-            continue
-        files = [f for f in os.listdir(cat_dir) if f.endswith(".npy")]
-        for f in files:
-            signal = np.load(os.path.join(cat_dir, f))
-            X.append(extract_features(signal))
-            y.append(label_idx)
-            
-    X = np.array(X)
-    y = np.array(y)
+    X, y = load_dataset(CATEGORIES)
     
     print("==========================================================================")
     print("     MORSE - 3-Class AI Benchmark (TAP vs TYPING vs NOISE)                 ")

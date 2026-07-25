@@ -26,3 +26,18 @@ def find_builtin_mic():
         if dev['max_input_channels'] > 0 and ("built-in" in dev['name'].lower() or "macbook" in dev['name'].lower()):
             return i, dev['name']
     return None, "Default Microphone"
+
+def load_dataset(categories):
+    """Load and extract features for all specified dataset categories."""
+    import os
+    X, y = [], []
+    for label_idx, cat in enumerate(categories):
+        cat_dir = os.path.join(DATASET_DIR, cat)
+        if not os.path.exists(cat_dir):
+            continue
+        files = [f for f in os.listdir(cat_dir) if f.endswith(".npy")]
+        for f in files:
+            signal = np.load(os.path.join(cat_dir, f))
+            X.append(extract_features(signal))
+            y.append(label_idx)
+    return np.array(X), np.array(y)

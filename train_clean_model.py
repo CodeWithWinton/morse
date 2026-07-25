@@ -5,25 +5,12 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 
-from utils import extract_features, DATASET_DIR
+from utils import load_dataset, DATASET_DIR
 
 CATEGORIES = ["tap", "typing", "noise"]
 
 def main():
-    X, y = [], []
-    
-    for label_idx, cat in enumerate(CATEGORIES):
-        cat_dir = os.path.join(DATASET_DIR, cat)
-        if not os.path.exists(cat_dir):
-            continue
-        files = [f for f in os.listdir(cat_dir) if f.endswith(".npy")]
-        for f in files:
-            signal = np.load(os.path.join(cat_dir, f))
-            X.append(extract_features(signal))
-            y.append(label_idx)
-            
-    X = np.array(X)
-    y = np.array(y)
+    X, y = load_dataset(CATEGORIES)
     
     print("==========================================================================")
     print("     MORSE - Fast 4-Class AI Model Trainer                               ")
