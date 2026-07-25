@@ -35,13 +35,22 @@ median_rms = np.median(chunk_rms) + 1e-6
 
 filtered_signal = np.zeros_like(raw_signal)
 
+# Smooth 5ms Fade Envelope (Eliminates step-discontinuity clicks and distortion!)
+fade_len = 240  # 5ms at 48kHz
+fade_in = np.sin(np.linspace(0, np.pi/2, fade_len))**2
+fade_out = np.cos(np.linspace(0, np.pi/2, fade_len))**2
+
 for i in range(num_chunks):
     start = i * chunk_size
     end = start + chunk_size
-    chunk = raw_signal[start:end]
+    chunk = raw_signal[start:end].copy()
     
     # If 10ms chunk RMS is 2.0x higher than median background noise, keep it!
     if chunk_rms[i] >= (median_rms * 2.0):
+        # Apply smooth 5ms fade envelope at edges to prevent click distortion
+        if len(chunk) >= 2 * fade_len:
+            chunk[:fade_len] *= fade_in
+            chunk[-fade_len:] *= fade_out
         filtered_signal[start:end] = chunk
     else:
         # ABSOLUTE DIGITAL ZERO (100% Mute)
