@@ -104,14 +104,9 @@ def main():
             # Dynamic Criteria: Right taps (damped high-freq) are accepted if pre_surge_ratio >= 1.8
             is_dsp_candidate = (volume >= 3.2) and (volume <= 85.0) and (crest_factor >= 1.15) and (hp_ratio >= 0.04 or pre_surge_ratio >= 1.8)
             
-            # Cross-Chassis Physics Compensator (+5.1 dB / 1.8x Gain Boost for damped Right Taps)
-            comp_buffer = buffer_history.copy()
-            if hp_ratio <= 0.20 and volume <= 6.0:
-                comp_buffer *= 1.8  # Reverse 30cm unibody aluminum damping
-            
             if is_dsp_candidate:
                 # Stage 2: 2D Spectrogram ML Model Verification
-                features = extract_2d_spectrogram(comp_buffer) if feature_type == "2d_spectrogram" else extract_features(comp_buffer)
+                features = extract_2d_spectrogram(buffer_history) if feature_type == "2d_spectrogram" else extract_features(buffer_history)
                 pred_idx = clf.predict([features])[0]
                 probs = clf.predict_proba([features])[0]
                 confidence = probs[pred_idx] * 100
