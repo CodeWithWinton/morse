@@ -103,16 +103,17 @@ def main():
                     time_since_last = current_time - last_tap_time
                     vol_ratio = volume / (last_tap_volume + 1e-6)
                     
-                    if 0.06 < time_since_last < 0.60 and (0.45 <= vol_ratio <= 2.10):
+                    # Ignore rebound decay echo (< 100ms) after Tap 1 without resetting state!
+                    if time_since_last < 0.10 and last_tap_time > 0:
+                        pass
+                    elif 0.10 <= time_since_last <= 0.65 and (0.35 <= vol_ratio <= 2.80):
                         print(f"\n✌️ DOUBLE-TAP DETECTED! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
                         actions.execute_action("whatsapp")
                         last_tap_time = 0
                         last_tap_ratio = 0.0
                         last_tap_volume = 0.0
-                    elif time_since_last <= 0.05 and last_tap_time > 0:
-                        pass
                     else:
-                        if time_since_last > 0.60 or last_tap_time == 0:
+                        if time_since_last > 0.65 or last_tap_time == 0:
                             print(f" 👆 Tap 1 captured... (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
                             last_tap_time = current_time
                             last_tap_ratio = ratio
