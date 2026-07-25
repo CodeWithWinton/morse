@@ -87,7 +87,7 @@ def main():
             peak = np.max(np.abs(transient))
             crest_factor = peak / rms
             
-            is_dsp_candidate = (10.0 <= volume <= 70.0) and (ratio >= 0.50) and (crest_factor >= 2.0)
+            is_dsp_candidate = (10.0 <= volume <= 70.0) and (ratio >= 0.50) and (crest_factor >= 1.2)
             
             if is_dsp_candidate:
                 # Stage 2: ML Model Verification
@@ -97,7 +97,7 @@ def main():
                 confidence = probs[pred_idx] * 100
                 predicted_label = categories[pred_idx]
                 
-                if predicted_label == "tap" and confidence >= 70.0:
+                if predicted_label == "tap" and confidence >= 85.0:
                     time_since_last = current_time - last_tap_time
                     if 0.06 < time_since_last < 0.60:
                         print(f"\n✌️ DOUBLE-TAP DETECTED! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
