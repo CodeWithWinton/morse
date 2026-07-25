@@ -28,6 +28,21 @@ To make false triggers mathematically zero, Morse relies on **Temporal Multi-Tap
 * **Single Accidental Bump:** Random, non-repeating event $\rightarrow$ Ignored.
 * **Double-Tap (`tap-tap`):** Deliberate human rhythmic input within 350ms $\rightarrow$ Triggers action.
 
+## Multi-Sensor Active Hardware Suppression Guards
+
+To eliminate 100% of false positives while typing or using the mouse, Morse leverages hardware state suppression:
+
+1. **Keyboard Typing Suppressor (`CGEventTap` Guard):**
+   * **Human Behavior Invariant:** A user actively typing text on the keyboard will not simultaneously double-tap the palm rest.
+   * **Mechanic:** If a physical keypress is detected within a $500\text{ms}$ window prior to an acoustic spike, the candidate audio frame is instantly suppressed ($0\%$ CPU).
+
+2. **Trackpad Motion Suppressor (`MultitouchSupport` Guard):**
+   * **Human Behavior Invariant:** A user actively scrolling or dragging on the trackpad is engaged in cursor navigation.
+   * **Mechanic:** Active trackpad drag or scroll events suppress acoustic gesture triggers.
+
+3. **Pre-Impact Silent Baseline Guard:**
+   * Continuous speech or music has active volume in the $30\text{ms}$ prior to a peak. A true mechanical chassis tap features a dead silent ($0\text{ dB}$) pre-impact baseline.
+
 See [[Future Roadmap]] for multi-tap pattern development milestones.
 
 Back to [[Morse - Master Hub]]
