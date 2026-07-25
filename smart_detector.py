@@ -2,6 +2,7 @@ import sounddevice as sd
 import numpy as np
 import pickle
 import time
+import sys
 import os
 import actions
 
@@ -42,11 +43,12 @@ def main():
     last_tap_time = 0
     last_tap_ratio = 0.0
     last_tap_volume = 0.0
+    last_action_time = 0.0
     event_counter = 0
     buffer_history = np.zeros(WINDOW_SIZE)
     
     def callback(indata, frames, time_info, status):
-        nonlocal last_tap_time, last_tap_ratio, last_tap_volume, event_counter, buffer_history
+        nonlocal last_tap_time, last_tap_ratio, last_tap_volume, last_action_time, event_counter, buffer_history
         sig = indata.flatten()
         volume = np.linalg.norm(sig) * 10
         current_time = time.time()
@@ -109,8 +111,11 @@ def main():
                     if time_since_last < 0.10 and last_tap_time > 0:
                         pass
                     elif 0.10 <= time_since_last <= 0.65 and (0.35 <= vol_ratio <= 2.80):
-                        print(f"\n✌️ DOUBLE-TAP DETECTED! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
-                        actions.execute_action("whatsapp")
+                        # 1.0s Action Debounce Lock: Prevents rapid double-toggling (open/close loop)
+                        if (current_time - last_action_time) >= 1.0:
+                            print(f"\n✌️ DOUBLE-TAP DETECTED! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
+                            actions.execute_action("whatsapp")
+                            last_action_time = current_time
                         last_tap_time = 0
                         last_tap_ratio = 0.0
                         last_tap_volume = 0.0
