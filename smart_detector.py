@@ -112,7 +112,9 @@ def main():
                 confidence = probs[pred_idx] * 100
                 predicted_label = categories[pred_idx]
                 
-                if predicted_label == "tap" and confidence >= 70.0:
+                is_valid_tap = predicted_label in ["left_palm_rest", "right_palm_rest", "tap"]
+                
+                if is_valid_tap and confidence >= 65.0:
                     time_since_last = current_time - last_tap_time
                     vol_ratio = volume / (last_tap_volume + 1e-6)
                     
@@ -122,24 +124,19 @@ def main():
                     elif 0.10 <= time_since_last <= 0.65 and (0.20 <= vol_ratio <= 4.0):
                         # 1.0s Action Debounce Lock: Prevents rapid double-toggling (open/close loop)
                         if (current_time - last_action_time) >= 1.0:
-                            print(f"\n✌️ DOUBLE-TAP DETECTED! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
+                            side_str = " (LEFT)" if predicted_label == "left_palm_rest" else (" (RIGHT)" if predicted_label == "right_palm_rest" else "")
+                            print(f"\n✌️ DOUBLE-TAP DETECTED!{side_str} (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
                             actions.execute_action("whatsapp")
                             last_action_time = current_time
                         last_tap_time = 0
                         last_tap_ratio = 0.0
                         last_tap_volume = 0.0
                     else:
-                        if time_since_last > 0.65 or last_tap_time == 0:
-                            print(f" 👆 Tap 1 captured... (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
-                            last_tap_time = current_time
-                            last_tap_ratio = ratio
-                            last_tap_volume = volume
-                        else:
-                            if "--debug" in sys.argv:
-                                print(f"   [Volume Mismatch Blocked: Vol {volume:.1f} vs Tap1 {last_tap_volume:.1f}] Event #{event_counter:03d}")
-                            last_tap_time = 0
-                            last_tap_ratio = 0.0
-                            last_tap_volume = 0.0
+                        side_str = " [LEFT]" if predicted_label == "left_palm_rest" else (" [RIGHT]" if predicted_label == "right_palm_rest" else "")
+                        print(f" 👆 Tap 1 captured{side_str}... (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
+                        last_tap_time = current_time
+                        last_tap_ratio = ratio
+                        last_tap_volume = volume
                 else:
                     if "--debug" in sys.argv:
                         if predicted_label == "tap":
