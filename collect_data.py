@@ -5,7 +5,7 @@ import time
 
 from utils import find_builtin_mic, SAMPLE_RATE, WINDOW_SIZE, DATASET_DIR
 
-CATEGORIES = ["tap", "typing", "desk_tap", "palm_rest", "screen_lid", "noise"]
+CATEGORIES = ["left_palm_rest", "right_palm_rest", "palm_resting", "typing", "desk_tap", "noise"]
 
 def record_sample(category_name):
     target_dir = os.path.join(DATASET_DIR, category_name)
@@ -29,13 +29,13 @@ def record_sample(category_name):
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
         
-        # Trigger on real volume spike > 4.5 (above ambient noise floor) with 0.35s debounce
-        if volume > 4.5 and (current_time - last_trigger_time > 0.35):
+        # Trigger on real volume spike > 3.0 (above ambient noise floor) with 0.35s debounce
+        if volume > 3.0 and (current_time - last_trigger_time > 0.35):
             last_trigger_time = current_time
             sample_count += 1
             filename = os.path.join(target_dir, f"sample_{sample_count:04d}.npy")
             np.save(filename, buffer_history.copy())
-            print(f"✅ Saved 46.4ms sample #{sample_count:04d} -> {filename} (Vol: {volume:.1f})")
+            print(f"✅ Saved 42.6ms sample #{sample_count:04d} -> {filename} (Vol: {volume:.1f})")
 
     # Explicitly find and select Built-in Microphone hardware device
     builtin_device_id, _ = find_builtin_mic()
