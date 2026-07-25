@@ -118,7 +118,7 @@ def main():
                     # Ignore rebound decay echo (< 100ms) after Tap 1 without resetting state!
                     if time_since_last < 0.10 and last_tap_time > 0:
                         pass
-                    elif 0.10 <= time_since_last <= 0.65 and (0.35 <= vol_ratio <= 2.80):
+                    elif 0.10 <= time_since_last <= 0.65 and (0.20 <= vol_ratio <= 4.0):
                         # 1.0s Action Debounce Lock: Prevents rapid double-toggling (open/close loop)
                         if (current_time - last_action_time) >= 1.0:
                             print(f"\n✌️ DOUBLE-TAP DETECTED! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
