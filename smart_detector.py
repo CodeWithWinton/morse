@@ -89,6 +89,11 @@ def main():
             peak = np.max(np.abs(transient))
             crest_factor = peak / rms
             
+            # High-Pass Spectral Ratio (> 2500 Hz)
+            hp_energy = np.sum(fft_vals[freqs >= 2500]) + 1e-6
+            total_fft_energy = np.sum(fft_vals) + 1e-6
+            hp_ratio = hp_energy / total_fft_energy
+
             # Pre-Impact Baseline Surge Ratio (Impact energy vs 30ms pre-impact baseline energy)
             pre_impact_start = max(0, peak_idx - 1440) # 30ms pre-impact window at 48kHz
             pre_impact = buffer_history[pre_impact_start:peak_idx]
