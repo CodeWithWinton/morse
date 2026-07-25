@@ -112,6 +112,8 @@ def main():
                 confidence = probs[pred_idx] * 100
                 predicted_label = categories[pred_idx]
                 
+                is_valid_tap = predicted_label in ["left_palm_rest", "right_palm_rest", "tap"]
+                
                 # Dynamic Confidence Threshold: 50% for damped Right Taps, 65% for Left Taps
                 min_conf = 50.0 if predicted_label == "right_palm_rest" else 65.0
                 
