@@ -7,12 +7,12 @@ from sklearn.metrics import classification_report
 
 from utils import load_dataset_2d
 
-CATEGORIES = ["tap", "typing", "noise"]
+CATEGORIES = ["left_palm_rest", "right_palm_rest", "palm_resting", "typing", "noise", "desk_tap"]
 MODEL_PATH = "model_2d.pkl"
 
 def main():
     print("==========================================================================")
-    print("     MORSE - Fast 2D Spectrogram AI Model Trainer                         ")
+    print("     MORSE - Class-Balanced 2D Spectrogram AI Model Trainer               ")
     print("==========================================================================")
     print("Loading 2D Spectrogram dataset matrices...")
     X, y = load_dataset_2d(CATEGORIES)
@@ -23,18 +23,19 @@ def main():
         
     for idx, cat in enumerate(CATEGORIES):
         count = (y == idx).sum()
-        print(f"  {cat.upper():12s}: {count} samples")
-    print(f"\n  TOTAL        : {len(X)} 2D Spectrogram samples")
+        print(f"  {cat.upper():16s}: {count} samples")
+    print(f"\n  TOTAL            : {len(X)} 2D Spectrogram samples")
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     
-    print("\n⏳ Training 2D Spectrogram HistGradientBoosting Classifier...")
+    print("\n⏳ Training Class-Balanced 2D Spectrogram HistGradientBoosting Classifier...")
     t0 = time.time()
     
     clf = HistGradientBoostingClassifier(
-        max_iter=150,
+        max_iter=200,
         learning_rate=0.08,
-        max_leaf_nodes=31,
+        max_leaf_nodes=45,
+        class_weight='balanced',
         random_state=42
     )
     clf.fit(X_train, y_train)
