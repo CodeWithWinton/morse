@@ -54,11 +54,12 @@ def main():
     
     last_tap_time = 0
     last_tap_ratio = 0.0
+    last_tap_volume = 0.0
     event_counter = 0
     buffer_history = np.zeros(WINDOW_SIZE)
     
     def callback(indata, frames, time_info, status):
-        nonlocal last_tap_time, last_tap_ratio, event_counter, buffer_history
+        nonlocal last_tap_time, last_tap_ratio, last_tap_volume, event_counter, buffer_history
         sig = indata.flatten()
         volume = np.linalg.norm(sig) * 10
         current_time = time.time()
@@ -99,17 +100,27 @@ def main():
                 
                 if predicted_label == "tap" and confidence >= 85.0:
                     time_since_last = current_time - last_tap_time
-                    if 0.06 < time_since_last < 0.60:
+                    vol_ratio = volume / (last_tap_volume + 1e-6)
+                    
+                    if 0.06 < time_since_last < 0.60 and (0.45 <= vol_ratio <= 2.10):
                         print(f"\n✌️ DOUBLE-TAP DETECTED! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
                         actions.execute_action("whatsapp")
                         last_tap_time = 0
                         last_tap_ratio = 0.0
+                        last_tap_volume = 0.0
                     elif time_since_last <= 0.05 and last_tap_time > 0:
                         pass
                     else:
-                        print(f" 👆 Tap 1 captured... (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
-                        last_tap_time = current_time
-                        last_tap_ratio = ratio
+                        if time_since_last > 0.60 or last_tap_time == 0:
+                            print(f" 👆 Tap 1 captured... (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
+                            last_tap_time = current_time
+                            last_tap_ratio = ratio
+                            last_tap_volume = volume
+                        else:
+                            print(f"   [Volume Mismatch Blocked: Vol {volume:.1f} vs Tap1 {last_tap_volume:.1f}] Event #{event_counter:03d}")
+                            last_tap_time = 0
+                            last_tap_ratio = 0.0
+                            last_tap_volume = 0.0
                 else:
                     if predicted_label == "tap":
                         print(f"   [Low Confidence Tap: {confidence:.1f}%] Event #{event_counter:03d}")
@@ -118,10 +129,12 @@ def main():
                         print(f"   [{icon} ML Blocked: {predicted_label.upper()}] Event #{event_counter:03d} (Conf: {confidence:.1f}%)")
                     last_tap_time = 0
                     last_tap_ratio = 0.0
+                    last_tap_volume = 0.0
             else:
                 print(f"   [DSP Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
                 last_tap_time = 0
                 last_tap_ratio = 0.0
+                last_tap_volume = 0.0
 
     try:
         with sd.InputStream(device=builtin_device_id, samplerate=SAMPLE_RATE, channels=1, callback=callback):
