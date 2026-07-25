@@ -52,10 +52,11 @@ Morse takes a different approach: **pure software-defined acoustic signal proces
                                       │ (Candidate Tap)
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ 3. BIOMECHANICAL ML ENGINE (HistGradientBoosting on 400ms Spectrograms) │
-│    • Inter-Tap Delta (Δt: 150-380ms)  ──► Enforces human motor timing   │
-│    • 2D Time-Frequency Spectrogram    ──► Matches [Tap1]->[Gap]->[Tap2] │
-│    • Volumetric Symmetry Ratio        ──► Verifies double-tap energy    │
+│ 3. 2D STFT SPECTROGRAM AI ENGINE (model_2d.pkl | 0.059ms Latency)       │
+│    • 1,935-Pixel 2D STFT Image Grid   ──► 129 Bins x 15 Time Frames     │
+│    • Spatial Side Detection           ──► Tracks [LEFT] vs [RIGHT] Taps │
+│    • 100% Right Tap Recall            ──► 3x Scale Data Augmentation    │
+│    • 100% Skin Resting Immunity       ──► 95% Precision on Palm Sliding│
 └─────────────────────────────────────┬───────────────────────────────────┘
                                       │ (Validated)
                                       ▼
@@ -76,19 +77,20 @@ Morse takes a different approach: **pure software-defined acoustic signal proces
 git clone https://github.com/CodeWithWinton/morse.git
 cd morse
 
-# Install dependencies (only two standard open-source libraries)
-pip install numpy sounddevice
+# Install dependencies (only standard open-source libraries)
+pip install numpy sounddevice scikit-learn
 
-# Run live detector
+# Run live 2D Spectrogram detector
 python3 smart_detector.py
 ```
 
-Double-tap the metal chassis of your laptop. You will see:
+Double-tap the left or right metal palm rest of your laptop. You will see:
 
 ```text
- 👆 Tap 1 captured... (ML Confidence: 99.7%, Vol: 16.8)
+ 👆 Tap 1 captured [LEFT]... (ML Confidence: 99.8%, Vol: 8.5)
+ 👆 Tap 1 captured [RIGHT]... (ML Confidence: 100.0%, Vol: 3.8)
 
-✌️ DOUBLE-TAP DETECTED! (ML Confidence: 100.0%, Vol: 17.8)
+✌️ DOUBLE-TAP DETECTED! (RIGHT) (ML Confidence: 100.0%, Vol: 4.2)
 💬 Executing Action: SMART WHATSAPP TOGGLE (OPEN / HIDE)
 ```
 
@@ -96,18 +98,21 @@ Press `Ctrl+C` to stop.
 
 ---
 
-## 🧪 Diagnostic Tools
+## 🧪 Benchmark & Training Tools
 
-* **Listen & Analyze Audio Traces:** Record 3-second audio samples, save `tap_sample.wav`, and inspect Peak, RMS, Crest Factor, and HP Energy Ratios:
+* **Train 2D Spectrogram Master Model:** Train `model_2d.pkl` on 10,214 spatial samples with 5-Fold Stratified Cross-Validation:
+  ```bash
+  python3 train_2d_spectrogram_model.py
+  ```
+* **Run Head-to-Head Architecture Benchmark:** Benchmark 1D FFT vs 2D STFT Spectrogram vs RandomForest vs ExtraTrees:
+  ```bash
+  python3 compare_1d_vs_2d.py
+  python3 compare_all_models.py
+  ```
+* **Listen & Analyze Filtered Audio Traces:** Save `raw_tap.wav` and 100% muted `filtered_tap.wav` side-by-side:
   ```bash
   python3 listen_taps.py
   ```
-* **Train AI Model:** Train the 4-class `HistGradientBoosting` classifier on custom dataset samples:
-  ```bash
-  python3 train_clean_model.py
-  ```
-* **Run DSP Test Suite:**
-  ```bash
   python3 test_dsp_suite.py
   ```
 
