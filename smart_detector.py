@@ -49,14 +49,14 @@ def main():
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
         
-        if 10.0 <= volume <= 70.0:
+        if 8.0 <= volume <= 85.0:
             event_counter += 1
             
-            # Stage 1: Fast DSP Filter
-            peak_idx = np.argmax(np.abs(sig))
-            start_idx = max(0, peak_idx - 50)
-            end_idx = min(len(sig), peak_idx + 800)
-            transient = sig[start_idx:end_idx]
+            # Stage 1: Fast DSP Filter (Sliced from rolling 2048-sample buffer_history to prevent boundary truncation!)
+            peak_idx = np.argmax(np.abs(buffer_history))
+            start_idx = max(0, peak_idx - 100)
+            end_idx = min(len(buffer_history), peak_idx + 1000)
+            transient = buffer_history[start_idx:end_idx]
             
             fft_vals = np.abs(np.fft.rfft(transient))
             freqs = np.fft.rfftfreq(len(transient), d=1.0/SAMPLE_RATE)
@@ -73,7 +73,7 @@ def main():
             structural_high_energy = np.sum(fft_vals[freqs >= 2000]) + 1e-6
             structural_transient_ratio = structural_high_energy / (rms + 1e-6)
             
-            is_dsp_candidate = (10.0 <= volume <= 70.0) and (structural_high_energy >= 1.5) and (ratio >= 0.12 or structural_transient_ratio >= 1.2) and (crest_factor >= 1.2)
+            is_dsp_candidate = (8.0 <= volume <= 85.0) and (ratio >= 0.05 or structural_transient_ratio >= 0.5) and (crest_factor >= 1.15)
             
             if is_dsp_candidate:
                 # Stage 2: ML Model Verification
