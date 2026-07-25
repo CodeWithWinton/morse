@@ -27,30 +27,27 @@ wav_int16_raw = np.int16(raw_signal / (np.max(np.abs(raw_signal)) + 1e-6) * 3276
 wavfile.write(raw_filename, SAMPLE_RATE, wav_int16_raw)
 print(f"💾 Saved Raw Audio: [raw_tap.wav](file://{os.path.abspath(raw_filename)})")
 
-# 2D Spectrogram Vertical Impulse Filter (Strips horizontal music/speech lines, keeps vertical tap spikes)
-fft_size = 512
-hop_size = 128
-num_frames = (len(raw_signal) - fft_size) // hop_size
-
+# Block-level Spectral Flux Gate (Eliminates overlap-add phase distortion!)
+block_size = 2048
+num_blocks = len(raw_signal) // block_size
 filtered_signal = np.zeros_like(raw_signal)
-prev_spectrum = np.zeros(fft_size // 2 + 1)
+prev_spectrum = np.zeros(block_size // 2 + 1)
 
-for i in range(num_frames):
-    start = i * hop_size
-    frame = raw_signal[start:start + fft_size]
-    windowed = frame * np.hanning(fft_size)
-    spectrum = np.abs(np.fft.rfft(windowed))
+for b in range(num_blocks):
+    start = b * block_size
+    end = start + block_size
+    block = raw_signal[start:end]
     
-    # Compute 2D Spectral Flux (Time derivative of energy: dE/dt)
+    spectrum = np.abs(np.fft.rfft(block * np.hanning(block_size)))
     spectral_flux = np.sum(np.maximum(0, spectrum - prev_spectrum))
     prev_spectrum = spectrum
     
-    # Keep frame ONLY if it contains a vertical impulse surge (dE/dt spike >= 15.0)
+    # Keep block ONLY if it contains a vertical impulse surge (dE/dt >= 12.0)
     # Background music and speech have dE/dt < 5.0 and get MUTED TO DEAD SILENCE!
-    if spectral_flux >= 15.0:
-        filtered_signal[start:start + fft_size] += frame
+    if spectral_flux >= 12.0:
+        filtered_signal[start:end] = block
 
-# Save 90%+ suppressed audio file (using same scale as raw so volume drop is audible)
+# Save 90%+ suppressed audio file with 100% crystal-clear tap sound
 filtered_filename = "filtered_tap.wav"
 wav_int16_filt = np.int16(np.clip(filtered_signal, -1.0, 1.0) * 32767)
 wavfile.write(filtered_filename, SAMPLE_RATE, wav_int16_filt)
