@@ -1,13 +1,23 @@
 import numpy as np
 import sounddevice as sd
 
-SAMPLE_RATE = 44100
-WINDOW_SIZE = 2048  # 46.4ms window at 44.1kHz
+SAMPLE_RATE = 48000  # Native Apple Silicon Hardware Clock (0% OS Resampling)
+WINDOW_SIZE = 2048   # 42.6ms window at 48.0kHz
 DATASET_DIR = "dataset"
 
-def extract_features(signal):
-    """Extract raw 1025-bin normalized FFT magnitude spectrum from audio buffer."""
+def extract_features(signal, original_rate=None):
+    """Extract raw 1025-bin normalized FFT magnitude spectrum from audio buffer, with auto-resampling if needed."""
     sig = signal.flatten()
+    
+    # Auto-resample 44.1kHz dataset samples to 48.0kHz for 100% backward compatibility
+    if original_rate and original_rate != SAMPLE_RATE:
+        num_target_samples = int(len(sig) * SAMPLE_RATE / original_rate)
+        sig = np.interp(
+            np.linspace(0, len(sig), num_target_samples, endpoint=False),
+            np.arange(len(sig)),
+            sig
+        )
+        
     if len(sig) < WINDOW_SIZE:
         sig = np.pad(sig, (0, WINDOW_SIZE - len(sig)))
     elif len(sig) > WINDOW_SIZE:
