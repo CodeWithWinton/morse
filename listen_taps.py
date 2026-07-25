@@ -40,18 +40,25 @@ fade_len = 240  # 5ms at 48kHz
 fade_in = np.sin(np.linspace(0, np.pi/2, fade_len))**2
 fade_out = np.cos(np.linspace(0, np.pi/2, fade_len))**2
 
+# 60ms (+6 Chunk) Physical Tap Decay Hold Window (Preserves full tap acoustic body!)
+hold_counter = 0
+
 for i in range(num_chunks):
     start = i * chunk_size
     end = start + chunk_size
     chunk = raw_signal[start:end].copy()
     
-    # If 10ms chunk RMS is 2.0x higher than median background noise, keep it!
-    if chunk_rms[i] >= (median_rms * 2.0):
-        # Apply smooth 5ms fade envelope at edges to prevent click distortion
+    # If 10ms chunk RMS is 1.5x higher than median noise, trigger 60ms hold window!
+    if chunk_rms[i] >= (median_rms * 1.5):
+        hold_counter = 6  # Hold open for 6 consecutive 10ms chunks (60ms)
+        
+    if hold_counter > 0:
+        # Preserve full physical tap body!
         if len(chunk) >= 2 * fade_len:
             chunk[:fade_len] *= fade_in
             chunk[-fade_len:] *= fade_out
         filtered_signal[start:end] = chunk
+        hold_counter -= 1
     else:
         # ABSOLUTE DIGITAL ZERO (100% Mute)
         filtered_signal[start:end] = 0.0
