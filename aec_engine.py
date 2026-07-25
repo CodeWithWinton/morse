@@ -6,24 +6,13 @@ import numpy as np
 class AECEngine:
     """
     Acoustic Echo Cancellation (AEC) Engine for MORSE.
-    Loads Apple Silicon Hardware VoiceProcessingIO (VPIO) via vpio_bridge.dylib.
+    Uses High-Pass Differential Energy Isolation (> 2,500 Hz) + Crest Normalization.
     """
     def __init__(self, sample_rate=48000):
         self.sample_rate = sample_rate
         self.is_macos = sys.platform == "darwin"
         self.vpio_lib = None
         self.hardware_aec_active = False
-        
-        if self.is_macos:
-            dylib_path = os.path.join(os.path.dirname(__file__), "vpio_bridge.dylib")
-            if os.path.exists(dylib_path):
-                try:
-                    self.vpio_lib = ctypes.CDLL(dylib_path)
-                    res = self.vpio_lib.enable_vpio(self.sample_rate)
-                    if res == 0:
-                        self.hardware_aec_active = True
-                except Exception as e:
-                    self.hardware_aec_active = False
 
     def process_frame(self, signal, volume):
         sig = signal.flatten()
