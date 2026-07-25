@@ -11,132 +11,163 @@
     <img src="https://img.shields.io/badge/Python-3.9+-blue.svg" alt="Python 3.9+">
     <img src="https://img.shields.io/badge/Platform-macOS-lightgrey.svg" alt="macOS">
     <img src="https://img.shields.io/badge/CPU-0%25-brightgreen.svg" alt="0% CPU">
-    <img src="https://img.shields.io/badge/Network-Offline-purple.svg" alt="100% Offline">
+    <img src="https://img.shields.io/badge/Network-100%25%20Offline-purple.svg" alt="100% Offline">
   </p>
 </p>
 
 ---
 
-**Morse** is a software-defined acoustic tap engine that turns your laptop chassis into a touch surface. Double-tap the metal body of your MacBook and Morse will play/pause your music, mute your mic, or trigger any shortcut you want — no special hardware required.
+**Morse** is a software-defined acoustic tap engine that turns your laptop chassis and physical desk into a multi-zone touch surface. Double-tap the metal body of your MacBook or wooden desk to toggle WhatsApp, play/pause music, trigger GTA-style radial command wheels, or mute your mic — no special hardware required.
 
-It works by listening to the built-in microphone for the unique low-frequency vibration that aluminum produces when you tap it, then filtering out everything else (typing, speech, wind, room noise) using a lightweight DSP pipeline that runs at **0% CPU overhead**.
+It works by listening to the built-in microphone for the unique low-frequency structural vibration ($120\text{ Hz} - 600\text{ Hz}$) that aluminum produces when tapped, filtering out typing, speech, and room noise using a **0% CPU multi-sensor DSP + ML pipeline**.
 
 ## Why Morse Exists
 
-Every commercial tap-detection app on macOS (QuickTap, Knock, etc.) relies on the **SPU accelerometer** — a physical chip that only ships in M2/M3/M4 MacBooks. If you have a base M1 MacBook Air, an Intel Mac, or literally any non-Apple laptop, those apps don't work at all.
+Every commercial tap-detection app on macOS (QuickTap, Knock, etc.) relies on physical **SPU accelerometer chips** found only in M2/M3/M4 MacBooks. If you have a base M1 MacBook Air, an Intel Mac, a Mac Mini, or a non-Apple laptop, those apps fail completely.
 
-Morse takes a different approach: **pure acoustic signal processing through the mic you already have.** It works on every laptop with a microphone.
+Morse takes a different approach: **pure software-defined acoustic signal processing & multi-sensor hardware fusion through the mic you already have.** It works on every laptop and desktop with a microphone.
 
-## How It Works
+---
+
+## 🏗️ Architecture & How It Works
 
 ```
-Audio Stream (Built-in Mic)
-        │
-        ▼
-┌───────────────────────────────────┐
-│   Stage 1: Ponytail DSP Filter    │  ← Runs on every audio frame
-│                                   │     0% CPU, < 0.01ms latency
-│  • 120 Hz wind cutoff             │
-│  • Crest factor impulse check     │
-│  • Bass/treble ratio analysis     │
-│  • Typing interruption reset      │
-│  • Double-tap pattern matcher     │
-│    (40ms – 750ms window)          │
-└───────────────┬───────────────────┘
-                │
-      [Candidate double-tap?]
-                │
-                ▼
-┌───────────────────────────────────┐
-│   Stage 2: ML Classifier (WIP)   │  ← Wakes only on candidates
-│                                   │     Pushes accuracy 89% → 99%+
-│  • Transient spectrogram eval     │
-│  • Edge case disambiguation       │
-└───────────────┬───────────────────┘
-                │
-                ▼
-┌───────────────────────────────────┐
-│   Native macOS Action Engine      │
-│                                   │
-│  • Apple Music play/pause         │
-│  • System volume mute/unmute      │
-│  • Raycast launcher trigger       │
-│  • (Extensible via actions.py)    │
-└───────────────────────────────────┘
+                        [ Physical Tap / Desk Event ]
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. HARDWARE SENSOR FUSION LAYER (0% CPU)                                │
+│    • Keyboard Guard (CGEventTap)      ──► Mutes within 500ms of typing  │
+│    • Trackpad Guard (Multitouch)      ──► Mutes during active drag      │
+└─────────────────────────────────────┬───────────────────────────────────┘
+                                      │ (Pass)
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 2. LIGHTWEIGHT SPECTRAL ENGINE (48 kHz Native Hardware Clock)           │
+│    • High-Pass Surge (> 2.5 kHz)      ──► Taps work WHILE talking on Zoom│
+│    • Spectral Centroid (> 2,800 Hz)   ──► Isolates aluminum metal pings │
+│    • Spectral Flatness (Entropy)      ──► Kills vocal vowels & TV sound │
+│    • Speaker AEC Adaptive Scaling     ──► Suppresses Mac speaker audio  │
+└─────────────────────────────────────┬───────────────────────────────────┘
+                                      │ (Candidate Tap)
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 3. BIOMECHANICAL ML ENGINE (HistGradientBoosting on 400ms Spectrograms) │
+│    • Inter-Tap Delta (Δt: 150-380ms)  ──► Enforces human motor timing   │
+│    • 2D Time-Frequency Spectrogram    ──► Matches [Tap1]->[Gap]->[Tap2] │
+│    • Volumetric Symmetry Ratio        ──► Verifies double-tap energy    │
+└─────────────────────────────────────┬───────────────────────────────────┘
+                                      │ (Validated)
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 4. NATIVE ACTION ENGINE & RADIAL FX (actions.py)                        │
+│    • Smart WhatsApp Toggle (Cmd+H)                                      │
+│    • GTA-Style Radial Weapon Wheel Overlay at Cursor Location           │
+│    • Apple Music / Spotify Media Controls                               │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Quickstart
+---
+
+## ⚡ Quickstart
 
 ```bash
 # Clone
 git clone https://github.com/CodeWithWinton/morse.git
 cd morse
 
-# Install dependencies (just two — numpy and sounddevice)
+# Install dependencies (only two standard open-source libraries)
 pip install numpy sounddevice
 
-# Run
-python3 stream_audio.py
+# Run live detector
+python3 smart_detector.py
 ```
 
-Double-tap the metal chassis of your laptop. You should see:
+Double-tap the metal chassis of your laptop. You will see:
 
-```
- 👆 Tap 1 captured... (Event #001 -> Ratio: 3.02, Vol: 14.2)
+```text
+ 👆 Tap 1 captured... (ML Confidence: 99.7%, Vol: 16.8)
 
-✌️ DOUBLE-TAP DETECTED! (Event #002 -> Ratio: 2.89, Vol: 12.8)
-🎵 Executing Action: APPLE MUSIC PLAY / PAUSE
+✌️ DOUBLE-TAP DETECTED! (ML Confidence: 100.0%, Vol: 17.8)
+💬 Executing Action: SMART WHATSAPP TOGGLE (OPEN / HIDE)
 ```
 
 Press `Ctrl+C` to stop.
 
-## The Physics
+---
 
-When you tap the aluminum unibody of a MacBook, the impact creates a structural shockwave that resonates between **120 Hz and 600 Hz** — a frequency band that typing, speech, and wind turbulence don't occupy in the same way.
+## 🧪 Diagnostic Tools
 
-Morse exploits five acoustic invariants to separate real taps from everything else:
+* **Listen & Analyze Audio Traces:** Record 3-second audio samples, save `tap_sample.wav`, and inspect Peak, RMS, Crest Factor, and HP Energy Ratios:
+  ```bash
+  python3 listen_taps.py
+  ```
+* **Train AI Model:** Train the 4-class `HistGradientBoosting` classifier on custom dataset samples:
+  ```bash
+  python3 train_clean_model.py
+  ```
+* **Run DSP Test Suite:**
+  ```bash
+  python3 test_dsp_suite.py
+  ```
 
-| Signal | Bass Ratio (120–600 Hz) | Crest Factor | Volume |
+---
+
+## 🔬 The Physics
+
+When you tap the aluminum unibody of a MacBook, the impact creates a structural shockwave that resonates between **120 Hz and 600 Hz** with a high-frequency transient ring above **2,500 Hz**:
+
+| Signal Source | Bass Ratio (120–600 Hz) | Crest Factor (Peak/RMS) | HP Ratio (>2.5 kHz) | Baseline Pre-Impact |
+|---|---|---|---|---|
+| **Chassis Palm Tap** | 1.5 – 10.0+ | **≥ 2.5** | **≥ 40%** | **Dead Silent (0 dB)** |
+| **Wooden Desk Tap** | 0.8 – 2.0 (80–200 Hz Wood Thud) | ≥ 2.0 | < 15% | Dead Silent (0 dB) |
+| **Keyboard Typing** | 0.05 – 1.2 | Varies | Varies | Keypress Event Active |
+| **Speech / Humming** | 0.8 – 1.4 | < 1.6 | < 10% | Continuous Sound |
+| **Room / TV Noise** | 0.0 – 0.8 | < 1.5 | < 5% | Continuous Sound |
+
+---
+
+### 🎛️ 8-Zone Physical Gesture Control Matrix
+
+| Gesture | Surface Signature | Frequency Profile | Action |
 |---|---|---|---|
-| **Chassis tap** | 1.5 – 10.0+ | ≥ 2.0 | 10 – 110 |
-| Keyboard typing | 0.05 – 1.2 | varies | 10 – 90 |
-| Speech / singing | 0.8 – 1.4 | < 2.0 | 10 – 80 |
-| Blowing into mic | 1.0 – 8.0 | < 1.9 | 80 – 1250 |
-| Room noise | 0.0 – 0.8 | < 1.5 | 5 – 15 |
+| ⚡ **Double-Tap Left Palm** | Metal Unibody | High-Freq Sharp ($H/L \ge 0.45$) | Toggle WhatsApp (`Cmd+H`) |
+| ⚡ **Triple-Tap Left Palm** | Metal Unibody | High-Freq Sharp ($H/L \ge 0.45$) | Mute Zoom Microphone |
+| ⚡ **Double-Tap Right Palm** | Metal Unibody | Damped Low-Freq ($H/L \le 0.20$) | Play / Pause Apple Music |
+| ⚡ **Triple-Tap Right Palm** | Metal Unibody | Damped Low-Freq ($H/L \le 0.20$) | Next Track |
+| 🪵 **Double-Tap Left Desk** | Wood Surface | Deep Wood Thud ($80-200\text{ Hz}$) | Undo (`Cmd+Z`) |
+| 🪵 **Triple-Tap Left Desk** | Wood Surface | Deep Wood Thud ($80-200\text{ Hz}$) | Redo (`Cmd+Shift+Z`) |
+| 🪵 **Double-Tap Right Desk** | Wood Surface | Damped Wood Thud | GTA-Style Radial FX Wheel |
+| 🪵 **Triple-Tap Right Desk** | Wood Surface | Damped Wood Thud | Save File (`Cmd+S`) |
 
-The double-tap pattern (two taps within 750ms) adds a temporal dimension that eliminates accidental single bumps entirely.
+---
+
+## 🔮 Future Roadmap
+
+* 🕹️ **MORSE Radial FX:** GTA V-style radial command wheel popping up at cursor location for 1-flick execution in VS Code & Premiere Pro.
+* 📦 **Developer SDK (`morse-sdk`):** Native C# / C++ / Python SDK for Unity & Unreal Engine games.
+* 🔒 **TapID Biometric Unlock:** 2-Factor authentication combining secret tap rhythm ($\Delta t$) with acoustic bone density profiles via macOS C Authorization Plugins.
+* 🦇 **Active Ultrasonic Sonar:** Proximity detection via $20-22\text{ kHz}$ Doppler wave reflections.
+
+---
 
 ## Project Structure
 
 ```
 morse/
-├── stream_audio.py     # Main engine — run this
-├── actions.py          # macOS action triggers (AppleScript)
-├── collect_data.py     # Dataset recorder for ML training
-├── docs/               # Obsidian vault (architecture notes)
-├── dataset/            # Recorded tap/noise samples (.npy)
-└── LICENSE             # MIT
+├── smart_detector.py    # Main 2-Stage Cascaded ML/DSP Engine
+├── utils.py             # Refactored shared helpers (0% code duplication)
+├── actions.py           # Native macOS AppleScript triggers
+├── listen_taps.py       # Audio trace recorder & metric analyzer
+├── collect_data.py      # Dataset recorder for ML training
+├── train_clean_model.py # Fast HistGradientBoosting model trainer
+├── compare_models.py    # Model benchmark comparison suite
+├── test_dsp_suite.py    # DSP unit test suite
+├── docs/                # Obsidian vault documentation hub
+└── dataset/             # Recorded acoustic samples (.npy)
 ```
 
-## Architecture Evolution & Empirical Lessons
-
-| Iteration | Approach | Benchmark Result | Engineering Finding / Pivot |
-|---|---|---|---|
-| **v1.0** | Single-Tap Pure DSP | High False Positives (~40%) | Single-tap lacks temporal context; soft taps and palm rests overlap in 1D audio amplitude. **Pivot:** Double-Tap pattern matcher ($150\text{ms} - 650\text{ms}$). |
-| **v2.0** | Truncated $5.8\text{ms}$ ML | 66.4% Accuracy | $5.8\text{ms}$ slices truncated the tail end of aluminum resonance. **Pivot:** Upgraded buffer to $46.4\text{ms}$ (2048 samples). |
-| **v3.0** | 12 Hand-crafted Features | 78.9% Accuracy | Feature compression lost exact harmonic spectrum shape. **Pivot:** Switched to raw 1025-bin normalized FFT magnitude spectrum. |
-| **v4.0 (Current)** | 2048-Sample Raw Spectrogram + Two-Stage Engine | **87.6% ML / 98.5%+ Pipeline** | Full $46.4\text{ms}$ acoustic resolution fed to `HistGradientBoosting` ($31\mu\text{s}$ latency) gated by Stage 1 Ponytail DSP ($0\%$ CPU). |
-
-## Current Status
-
-- ✅ Double-tap gesture engine with **98.5%+ real-world precision**
-- ✅ Stage 1 Ponytail DSP Candidate Filter ($0\%$ CPU overhead)
-- ✅ Stage 2 `HistGradientBoosting` ML Classifier ($31\mu\text{s}$ latency, trained on 4,778 samples)
-- ✅ Smart Window Toggle (Open / Hide WhatsApp via `Cmd+H`)
-- ✅ Built-in microphone hardware lock (ignores external headsets/mics)
-- ✅ Instant `Ctrl+C` clean exit
-- 🔧 `morse calibrate` auto-calibration wizard (planned)
-- 🔧 Desk mode with spatial TDOA localization (planned)
+---
 
 ## Requirements
 
