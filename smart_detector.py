@@ -57,7 +57,7 @@ def main():
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
         
-        if 5.0 <= volume <= 85.0:
+        if 3.5 <= volume <= 85.0:
             event_counter += 1
             
             # Check Hardware Suppression Guards (0% CPU)
@@ -89,11 +89,17 @@ def main():
             peak = np.max(np.abs(transient))
             crest_factor = peak / rms
             
-            # Universal High-Pass Structural Transient Filter (Isolates chassis mechanical pings from airborne room music/speech)
-            structural_high_energy = np.sum(fft_vals[freqs >= 2000]) + 1e-6
-            structural_transient_ratio = structural_high_energy / (rms + 1e-6)
+            # High-Pass Spectral Ratio (> 2500 Hz) to eliminate speaker music & airborne vocal speech
+            hp_energy = np.sum(fft_vals[freqs >= 2500]) + 1e-6
+            total_fft_energy = np.sum(fft_vals) + 1e-6
+            hp_ratio = hp_energy / total_fft_energy
             
-            is_dsp_candidate = (5.0 <= volume <= 85.0) and (ratio >= 0.05 or structural_transient_ratio >= 0.5) and (crest_factor >= 1.15)
+            # Distance-Aware Dynamic Volume Floor:
+            # Right taps have lower high-frequency ratio (damped across chassis) -> floor 3.5
+            # Left taps have higher high-frequency ratio -> floor 4.8
+            min_vol = 3.5 if hp_ratio < 0.25 else 4.8
+            
+            is_dsp_candidate = (volume >= min_vol) and (volume <= 85.0) and (crest_factor >= 1.18) and (hp_ratio >= 0.06)
             
             if is_dsp_candidate:
                 # Stage 2: ML Model Verification
