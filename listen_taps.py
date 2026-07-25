@@ -33,30 +33,31 @@ num_blocks = len(raw_signal) // block_size
 filtered_signal = np.zeros_like(raw_signal)
 prev_spectrum = np.zeros(block_size // 2 + 1)
 
+# Calculate energy for every block across the 3-second recording
+block_energies = [np.sum(raw_signal[b * block_size : (b + 1) * block_size]**2) for b in range(num_blocks)]
+baseline_energy = np.median(block_energies) + 1e-9
+
 for b in range(num_blocks):
     start = b * block_size
     end = start + block_size
     block = raw_signal[start:end]
     
+    block_energy = block_energies[b]
+    surge_ratio = block_energy / baseline_energy
+    
     rms = np.sqrt(np.mean(block**2)) + 1e-6
     peak = np.max(np.abs(block))
     crest = peak / rms
     
-    fft_vals = np.abs(np.fft.rfft(block * np.hanning(block_size)))
-    freqs = np.fft.rfftfreq(block_size, d=1.0/SAMPLE_RATE)
-    
-    hp_energy = np.sum(fft_vals[freqs >= 2500]) + 1e-6
-    hp_ratio = hp_energy / (np.sum(fft_vals) + 1e-6)
-    
-    # Is it a real physical tap impulse? (Crest >= 2.2 OR High-Pass >= 18%)
-    is_tap = (crest >= 2.2) or (hp_ratio >= 0.18 and crest >= 1.6)
+    # Is it a real physical tap transient surge? (Energy Surge >= 3.0x baseline OR Crest >= 2.0)
+    is_tap = (surge_ratio >= 3.0) or (crest >= 2.0)
     
     if is_tap:
-        # Keep physical tap at 100% full volume!
+        # Keep physical tap at 100% FULL ORIGINAL VOLUME!
         filtered_signal[start:end] = block
     else:
-        # Suppress background music/speech by 99% (0.01x volume)!
-        filtered_signal[start:end] = block * 0.01
+        # Mute background music/speech/room noise to DEAD SILENCE (0.0)!
+        filtered_signal[start:end] = 0.0
 
 # Save 90%+ suppressed audio file with 100% crystal-clear tap sound
 filtered_filename = "filtered_tap.wav"
