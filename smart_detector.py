@@ -134,9 +134,6 @@ def main():
                         last_tap_volume = 0.0
             else:
                 print(f"   [DSP Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
-                last_tap_time = 0
-                last_tap_ratio = 0.0
-                last_tap_volume = 0.0
 
     try:
         with sd.InputStream(device=builtin_device_id, samplerate=SAMPLE_RATE, channels=1, callback=callback):
