@@ -57,7 +57,7 @@ def main():
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
         
-        if 3.2 <= volume <= 85.0:
+        if 5.0 <= volume <= 85.0:
             event_counter += 1
             
             # Check Hardware Suppression Guards (0% CPU)
@@ -93,7 +93,7 @@ def main():
             structural_high_energy = np.sum(fft_vals[freqs >= 2000]) + 1e-6
             structural_transient_ratio = structural_high_energy / (rms + 1e-6)
             
-            is_dsp_candidate = (3.2 <= volume <= 85.0) and (ratio >= 0.05 or structural_transient_ratio >= 0.5) and (crest_factor >= 1.15)
+            is_dsp_candidate = (5.0 <= volume <= 85.0) and (ratio >= 0.05 or structural_transient_ratio >= 0.5) and (crest_factor >= 1.15)
             
             if is_dsp_candidate:
                 # Stage 2: ML Model Verification
