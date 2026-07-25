@@ -5,6 +5,8 @@ import time
 import os
 import actions
 
+import hardware_guards
+
 from utils import extract_features, find_builtin_mic, SAMPLE_RATE, WINDOW_SIZE
 
 MODEL_PATH = "model.pkl"
@@ -21,6 +23,9 @@ def main():
     categories = model_data["categories"]
     model_name = model_data.get("model_name", "AI Classifier")
     
+    # Start native hardware event guards (Keyboard & Trackpad)
+    hardware_guards.start_guards()
+    
     # Explicitly find and select Built-in Microphone hardware device
     builtin_device_id, dev_name = find_builtin_mic()
     print(f"🎙️ Target Hardware: [{builtin_device_id}] {dev_name}")
@@ -29,6 +34,7 @@ def main():
     print(f"   MORSE - Smart AI Tap Engine ({model_name})")
     print("====================================")
     print("🤖 Stage 1 DSP Filter + Stage 2 ML Classifier Active")
+    print("🛡️ Multi-Sensor Guards: Keyboard & Trackpad Active")
     print("💬 Action: Smart WhatsApp Toggle (Open / Hide)")
     print("🎙️  Listening to chassis... (Double-tap metal palm rest!)")
     print("Press Ctrl+C to stop.\n")
@@ -51,6 +57,16 @@ def main():
         
         if 3.2 <= volume <= 85.0:
             event_counter += 1
+            
+            # Check Hardware Suppression Guards (0% CPU)
+            if hardware_guards.is_typing_active(current_time):
+                print(f"   [⌨️ Hardware Blocked: TYPING] Event #{event_counter:03d}")
+                last_tap_time = 0
+                return
+            if hardware_guards.is_trackpad_active(current_time):
+                print(f"   [🖱️ Hardware Blocked: TRACKPAD] Event #{event_counter:03d}")
+                last_tap_time = 0
+                return
             
             # Stage 1: Fast DSP Filter (Sliced from rolling 2048-sample buffer_history to prevent boundary truncation!)
             peak_idx = np.argmax(np.abs(buffer_history))
