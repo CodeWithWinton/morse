@@ -70,31 +70,45 @@ def extract_2d_spectrogram(signal, original_rate=None, n_fft=256, hop_length=128
     return spec_matrix.flatten()
 
 def load_dataset(categories):
-    """Load and extract 1D features for all specified dataset categories."""
+    """Load and extract 1D features for all specified dataset categories (.npy and .wav supported)."""
     import os
+    from scipy.io import wavfile
     X, y = [], []
     for label_idx, cat in enumerate(categories):
         cat_dir = os.path.join(DATASET_DIR, cat)
         if not os.path.exists(cat_dir):
             continue
-        files = [f for f in os.listdir(cat_dir) if f.endswith(".npy")]
+        files = [f for f in os.listdir(cat_dir) if f.endswith(".npy") or f.endswith(".wav")]
         for f in files:
-            signal = np.load(os.path.join(cat_dir, f))
-            X.append(extract_features(signal))
+            filepath = os.path.join(cat_dir, f)
+            if f.endswith(".wav"):
+                sr, signal = wavfile.read(filepath)
+                signal = signal.astype(np.float32) / 32767.0
+            else:
+                signal = np.load(filepath)
+                sr = SAMPLE_RATE
+            X.append(extract_features(signal, original_rate=sr))
             y.append(label_idx)
     return np.array(X), np.array(y)
 
 def load_dataset_2d(categories):
-    """Load and extract 2D Spectrogram features for all specified dataset categories."""
+    """Load and extract 2D Spectrogram features for all specified dataset categories (.npy and .wav supported)."""
     import os
+    from scipy.io import wavfile
     X, y = [], []
     for label_idx, cat in enumerate(categories):
         cat_dir = os.path.join(DATASET_DIR, cat)
         if not os.path.exists(cat_dir):
             continue
-        files = [f for f in os.listdir(cat_dir) if f.endswith(".npy")]
+        files = [f for f in os.listdir(cat_dir) if f.endswith(".npy") or f.endswith(".wav")]
         for f in files:
-            signal = np.load(os.path.join(cat_dir, f))
-            X.append(extract_2d_spectrogram(signal))
+            filepath = os.path.join(cat_dir, f)
+            if f.endswith(".wav"):
+                sr, signal = wavfile.read(filepath)
+                signal = signal.astype(np.float32) / 32767.0
+            else:
+                signal = np.load(filepath)
+                sr = SAMPLE_RATE
+            X.append(extract_2d_spectrogram(signal, original_rate=sr))
             y.append(label_idx)
     return np.array(X), np.array(y)
