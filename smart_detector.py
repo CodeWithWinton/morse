@@ -132,10 +132,9 @@ def main():
                         icons = {"typing": "⌨️", "desk_tap": "🪵", "palm_rest": "✋", "noise": "🔕"}
                         icon = icons.get(predicted_label, "🔕")
                         print(f"   [{icon} ML Blocked: {predicted_label.upper()}] Event #{event_counter:03d} (Conf: {confidence:.1f}%)")
-                    if predicted_label != "noise":
-                        last_tap_time = 0
-                        last_tap_ratio = 0.0
-                        last_tap_volume = 0.0
+                    last_tap_time = 0
+                    last_tap_ratio = 0.0
+                    last_tap_volume = 0.0
             else:
                 print(f"   [DSP Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
 
