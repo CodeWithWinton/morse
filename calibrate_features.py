@@ -45,7 +45,8 @@ def main():
             buffer_history = np.roll(buffer_history, -len(sig))
             buffer_history[-len(sig):] = sig
             
-            if vol >= 3.2 and (now - last_tap) > 0.35:
+            min_vol = 2.0 if mode == "softest" else 3.2
+            if vol >= min_vol and (now - last_tap) > 0.35:
                 feat = extract_2d_spectrogram(buffer_history)
                 # The 7 physical features appended at end of feat array
                 phys = feat[-7:]
