@@ -109,8 +109,8 @@ def main():
             pre_rms = np.sqrt(np.mean(pre_impact**2)) + 1e-6 if len(pre_impact) > 0 else 1e-6
             pre_surge_ratio = rms / pre_rms
             
-            # Adaptive Pre-Surge: Relaxed for gentle taps
-            min_pre_surge = 1.3 if volume < 5.0 else 1.8
+            # Empirical Pre-Surge: Taps hit >= 2.13x surge, soft taps >= 1.8x
+            min_pre_surge = 1.8 if volume < 5.0 else 2.1
             # Empirical Physical DSP Limits (Based on 60/60 Left/Right tests)
             is_dsp_candidate = (volume >= 3.5) and (volume <= 110.0) and (crest_factor >= 1.60) and (hp_ratio >= 0.05 or pre_surge_ratio >= min_pre_surge)
             
