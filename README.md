@@ -36,16 +36,16 @@ Just as **LLMs (Large Language Models)** transform tokenized text into semantic 
 └──────────────────────────────┴──────────────────────────────────────────┘
 ```
 
-**TLM 1.0** combines **3D Mel-Spectrogram Kinematics** with **50ms Unibody Mechanical Wave Dispersion** to separate physical aluminum chassis taps from ambient air-borne noise (like earphone lid snaps, door slams, or pen clicks) in under $0.1\text{ms}$.
+**TLM 1.0** combines **3D Mel-Spectrogram Kinematics** with **50ms Unibody Mechanical Wave Dispersion** to separate physical aluminum chassis taps from ambient air-borne noise (like earphone lid snaps, door slams, or pen clicks) in under 0.1ms.
 
 ---
 
 ## 🚀 Key Features
 
 * **🧠 Powered by TLM 1.0:** First-principles acoustic gesture AI for laptop chassis.
-* **🌊 50ms Mechanical Wave Dispersion (Feature #305):** Measures physical kinetic wave ring-down across aluminum decks ($0.160 - 0.330$ chassis tap vs $0.039 - 0.115$ air click).
+* **🌊 50ms Mechanical Wave Dispersion (Feature #305):** Measures physical kinetic wave ring-down across aluminum decks (0.160 - 0.330 chassis tap vs 0.039 - 0.115 air click).
 * **🎯 97.0% Left / 95.0% Right Precision:** Multi-surface trained across Hard Desks, Soft Beds/Blankets, and Laps.
-* **⚡ Hybrid Fallback Shield:** Combines TLM decision trees with a physical $0.14$ dispersion safety floor for zero false positives.
+* **⚡ Hybrid Fallback Shield:** Combines TLM decision trees with a physical 0.14 dispersion safety floor for zero false positives.
 * **🛡️ 0% CPU Quartz Hardware Shields:** Passive C-level `CGEventTap` mutes the engine during active typing or trackpad gestures.
 * **📳 Trackpad Haptic Feedback:** Triggers native macOS `NSTrackpadHapticFeedbackPerformer` confirmation clicks.
 * **⌨️ Fn Key Kill-Switch:** Instant toggle between 🟢 `RESUMED` and 🔴 `PAUSED` state.

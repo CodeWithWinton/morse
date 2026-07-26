@@ -50,7 +50,7 @@ It was engineered for **MORSE**, a software-defined acoustic AI engine powered b
 * **`noise_and_typing/`** (1,000 `.npy` samples): Multi-surface ambient noise, typing clacks, desk taps, and 200 hard negative earphone lid snaps & pen clicks.
 
 ## Physical Feature Highlights
-* **50ms Mechanical Wave Dispersion Ratio:** Measures physical kinetic energy ring-down across aluminum decks ($0.160 - 0.330$ chassis tap vs $0.039 - 0.115$ air click).
+* **50ms Mechanical Wave Dispersion Ratio:** Measures physical kinetic energy ring-down across aluminum decks (0.160 - 0.330 chassis tap vs 0.039 - 0.115 air click).
 * **Bass Energy Ratio (120 - 600 Hz):** Captures unibody structural resonance near built-in microphone.
 
 ## Citation
