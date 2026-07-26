@@ -141,32 +141,25 @@ def main():
                     elif 0.15 <= time_since_last <= 0.85 and (0.15 <= vol_ratio <= 5.0):
                         tap_count += 1
 
-                        if tap_count == 2:
-                            # DOUBLE-TAP: Toggle WhatsApp
-                            if (current_time - last_action_time) >= 0.5:
-                                side_str = " (RIGHT)" if last_tap_side == "right" else " (LEFT)"
-                                print(f"\n✌️ DOUBLE-TAP!{side_str} (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
-                                fire_double_tap_confirmation()
-                                actions.execute_action("whatsapp")
-                                last_action_time = current_time
-                            tap_count = 0
-                            last_tap_time = 0
-                            last_tap_volume = 0.0
-                            last_tap_centroid = 0.0
-                        elif tap_count >= 3:
-                            # TRIPLE-TAP: Apple Music Play / Pause
-                            if (current_time - last_action_time) >= 0.5:
-                                print(f"\n🔥 TRIPLE-TAP! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
+                        # DOUBLE-TAP DETECTED!
+                        if (current_time - last_action_time) >= 0.5:
+                            is_right_side = (predicted_label == "right_palm_rest") or (last_tap_side == "right")
+                            if is_right_side:
+                                print(f"\n✌️ DOUBLE-TAP! (RIGHT) (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
+                                print("🎵 Executing Action: APPLE MUSIC PLAY / PAUSE")
                                 fire_double_tap_confirmation()
                                 actions.execute_action("apple_music")
-                                last_action_time = current_time
-                            tap_count = 0
-                            last_tap_time = 0
-                            last_tap_volume = 0.0
-                            last_tap_centroid = 0.0
-                        else:
-                            last_tap_time = current_time
-                            last_tap_volume = volume
+                            else:
+                                print(f"\n✌️ DOUBLE-TAP! (LEFT) (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
+                                print("💬 Executing Action: SMART WHATSAPP TOGGLE (OPEN / HIDE)")
+                                fire_double_tap_confirmation()
+                                actions.execute_action("whatsapp")
+                            last_action_time = current_time
+                        
+                        last_tap_time = 0
+                        last_tap_volume = 0.0
+                        last_tap_centroid = 0.0
+                        last_tap_side = ""
                     else:
                         # Suppress shadow taps within 700ms after a successful action
                         if (current_time - last_action_time) < 0.70:
