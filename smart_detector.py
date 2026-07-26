@@ -133,7 +133,7 @@ def main():
                     # Ignore rebound decay echo (< 100ms) after Tap 1 without resetting state!
                     if time_since_last < 0.10 and last_tap_time > 0:
                         pass
-                    elif 0.10 <= time_since_last <= 0.65 and (0.20 <= vol_ratio <= 4.0):
+                    elif 0.10 <= time_since_last <= 0.75 and (0.15 <= vol_ratio <= 5.0):
                         # 0.5s Action Debounce Lock: Fast, responsive double-taps
                         if (current_time - last_action_time) >= 0.5:
                             side_str = " (LEFT)" if predicted_label == "left_palm_rest" else (" (RIGHT)" if predicted_label == "right_palm_rest" else "")
@@ -153,15 +153,18 @@ def main():
                         last_tap_centroid = spectral_centroid
                 else:
                     if "--debug" in sys.argv:
-                        if predicted_label == "tap":
+                        if predicted_label in ["left_palm_rest", "right_palm_rest", "tap"]:
                             print(f"   [Low Confidence Tap: {confidence:.1f}%] Event #{event_counter:03d}")
                         else:
-                            icons = {"typing": "⌨️", "desk_tap": "🪵", "palm_rest": "✋", "noise": "🔕"}
+                            icons = {"typing": "⌨️", "desk_tap": "🪵", "palm_rest": "✋", "noise": "🔕", "palm_resting": "✋"}
                             icon = icons.get(predicted_label, "🔕")
                             print(f"   [{icon} ML Blocked: {predicted_label.upper()}] Event #{event_counter:03d} (Conf: {confidence:.1f}%)")
-                    last_tap_time = 0
-                    last_tap_ratio = 0.0
-                    last_tap_volume = 0.0
+                    # DO NOT reset last_tap_time on noise/typing events! Allow Tap 2 window to stay open until 0.75s timeout!
+                    if current_time - last_tap_time > 0.75:
+                        last_tap_time = 0
+                        last_tap_ratio = 0.0
+                        last_tap_volume = 0.0
+                        last_tap_centroid = 0.0
             else:
                 if "--debug" in sys.argv:
                     print(f"   [DSP Filtered] Event #{event_counter:03d} -> Ratio: {ratio:.2f}, Vol: {volume:.1f}")
