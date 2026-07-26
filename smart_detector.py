@@ -144,10 +144,12 @@ def main():
                     time_since_last = current_time - last_tap_time
                     vol_ratio = volume / (last_tap_volume + 1e-6)
 
+                    is_same_side = (last_tap_side == "") or (detected_side == last_tap_side)
+
                     # Ignore rebound decay echo (< 150ms) without resetting state!
                     if time_since_last < 0.15 and last_tap_time > 0:
                         pass
-                    elif 0.15 <= time_since_last <= 0.85 and (0.15 <= vol_ratio <= 5.0):
+                    elif 0.15 <= time_since_last <= 0.85 and (0.15 <= vol_ratio <= 5.0) and is_same_side:
                         tap_count += 1
 
                         # DOUBLE-TAP DETECTED!
