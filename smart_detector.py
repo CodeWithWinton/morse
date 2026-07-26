@@ -10,8 +10,8 @@ import hardware_guards
 from haptic_feedback import fire_double_tap_confirmation
 from utils import extract_lean_305_features, find_builtin_mic, SAMPLE_RATE
 
-# 500ms Double-Tap Window
-DOUBLE_TAP_WINDOW = 24000
+# 350ms Double-Tap Window for snappy physical double-taps
+DOUBLE_TAP_WINDOW = 16800
 MODEL_PATH = "model_double_tap.pkl" if os.path.exists("model_double_tap.pkl") else "model_2d.pkl"
 
 def main():
@@ -24,7 +24,7 @@ def main():
         
     clf = model_data["model"]
     categories = model_data["categories"]
-    model_name = model_data.get("model_name", "500ms Double-Tap HistGradientBoosting")
+    model_name = model_data.get("model_name", "350ms Double-Tap HistGradientBoosting")
     
     # Start native hardware event guards (Keyboard & Trackpad)
     hardware_guards.start_guards()
@@ -34,9 +34,9 @@ def main():
     print(f"🎙️ Target Hardware: [{builtin_device_id}] {dev_name}")
 
     print("==========================================================================")
-    print(f"   MORSE - 500ms Double-Tap Native AI Engine ({model_name})")
+    print(f"   MORSE - 350ms Double-Tap Native AI Engine ({model_name})")
     print("==========================================================================")
-    print("🤖 Stage 1 DSP Window + Stage 2 ML Double-Tap Classifier (LEAN_305) Active")
+    print("🤖 Stage 1 DSP Window + Stage 2 ML Double-Tap Classifier (350ms Window) Active")
     print("🛡️ Multi-Sensor Guards: Keyboard, Trackpad & Control Key Toggle Active")
     print("📳 Haptic Feedback: Trackpad confirmation clicks enabled")
     print("💬 Actions: Left Double-Tap = Toggle WhatsApp | Right Double-Tap = Play/Pause Music")
@@ -52,25 +52,23 @@ def main():
         volume = np.linalg.norm(sig) * 10
         current_time = time.time()
 
-        # Maintain rolling 500ms window (24,000 samples)
+        # Maintain rolling 350ms window (16,800 samples)
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
 
-        # Action lockout window (1.50s debounce after triggering an action)
-        if (current_time - last_action_time) < 1.50:
+        # Action lockout window (1.20s debounce after triggering an action)
+        if (current_time - last_action_time) < 1.20:
             return
 
-        if 2.5 <= volume <= 110.0:
+        if 2.2 <= volume <= 110.0:
             # 1. Check Hardware Suppression Guards (0% CPU)
             if hardware_guards.is_engine_paused():
                 return
             if hardware_guards.is_typing_active(current_time):
-                if "--debug" in sys.argv:
-                    print("   [⌨️ Hardware Blocked: TYPING]")
+                print("   ⌨️  [MORSE GUARD] KEYBOARD BLOCKED (Active typing shield)")
                 return
             if hardware_guards.is_trackpad_active(current_time):
-                if "--debug" in sys.argv:
-                    print("   [🖱️ Hardware Blocked: TRACKPAD]")
+                print("   🖱️  [MORSE GUARD] TRACKPAD BLOCKED (Active trackpad shield)")
                 return
             
             # 2. Extract 305 features over the 500ms double-tap gesture window
@@ -83,20 +81,9 @@ def main():
             predicted_label = categories[pred_idx]
             confidence = probs[pred_idx] * 100.0
 
-            # Physical Spectral Correction: Left battery deck resonance (bass_ratio >= 0.25) overrides mispredicted Right labels
-            if predicted_label == "double_right_palm" and bass_ratio >= 0.25:
-                predicted_label = "double_left_palm"
-                confidence = max(confidence, 88.0)
-
-            # 4. High-Precision Thresholding (Right >= 90.0%, Left >= 85.0%)
-            min_required_conf = 90.0 if predicted_label == "double_right_palm" else 85.0
+            # 4. High-Precision Thresholding (Right >= 85.0%, Left >= 85.0%)
+            min_required_conf = 85.0
             
-            # 5. Physical Spatial Energy Boundaries (Right taps through 30cm aluminum deck are <= 8.0 Vol at mic)
-            if predicted_label == "double_right_palm" and volume > 8.0:
-                if "--debug" in sys.argv:
-                    print(f"   [🛡️ Physical Block: RIGHT Volume {volume:.1f} > 8.0 (Left Decay)]")
-                return
-
             if predicted_label in ("double_left_palm", "double_right_palm") and confidence >= min_required_conf:
                 last_action_time = current_time
                 buffer_history.fill(0.0)

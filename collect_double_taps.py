@@ -9,7 +9,7 @@ from utils import find_builtin_mic, SAMPLE_RATE
 DOUBLE_TAP_WINDOW = 24000  # 500ms at 48.0kHz
 DATASET_DIR = "dataset_double_taps"
 CATEGORIES = ["double_left_palm", "double_right_palm", "noise_and_typing"]
-TARGET_SAMPLES = 500
+TARGET_SAMPLES = 800
 
 def record_category(category_name):
     target_dir = os.path.join(DATASET_DIR, category_name)

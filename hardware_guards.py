@@ -99,14 +99,14 @@ def is_engine_paused():
     """Check if MORSE engine is currently paused by Fn key toggle."""
     return engine_paused
 
-def is_typing_active(current_time=None, window_sec=0.75):
-    """Check if a physical keypress occurred within the active typing window (increased to 0.75s)."""
+def is_typing_active(current_time=None, window_sec=1.50):
+    """Check if a physical keypress occurred within the active typing window (increased to 1.50s)."""
     if current_time is None:
         current_time = time.time()
     return (current_time - last_keypress_time) < window_sec
 
-def is_trackpad_active(current_time=None, window_sec=0.85):
-    """Check if a trackpad click/drag/scroll occurred within active window (increased to 0.85s)."""
+def is_trackpad_active(current_time=None, window_sec=1.00):
+    """Check if a trackpad click/drag/scroll occurred within active window (1.00s)."""
     if current_time is None:
         current_time = time.time()
     return (current_time - last_trackpad_time) < window_sec
