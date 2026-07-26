@@ -8,14 +8,17 @@ import os
 from utils import find_builtin_mic, extract_2d_spectrogram, SAMPLE_RATE, WINDOW_SIZE
 
 def main():
+    mode = sys.argv[1] if len(sys.argv) > 1 else "normal"
+    out_file = f"calib_{mode}.json"
+    
     print("==========================================================================")
-    print("     MORSE - 60/60 Multi-Factor Physical Feature Calibration Suite       ")
+    print(f"     MORSE - 60/60 Multi-Factor Calibration Suite [{mode.upper()} MODE]     ")
     print("==========================================================================")
     
     builtin_mic_id, dev_name = find_builtin_mic()
     print(f"🎙️ Target Hardware: [{builtin_mic_id}] {dev_name}")
-    print("This tool will guide you through recording 60 Left Taps and 60 Right Taps")
-    print("to compute exact empirical distributions for Pitch, Bass, Centroid, Rolloff, ZCR & Flatness!\n")
+    print(f"Mode: {mode.upper()} | Output File: {out_file}")
+    print(f"This tool will record 60 Left and 60 Right [{mode.upper()}] taps.")
     
     input("👉 Press Enter to start recording 60 LEFT Palm Rest Taps...")
     
@@ -91,11 +94,11 @@ def main():
             "right": {"mean": float(r_mean), "min": float(r_min), "max": float(r_max)}
         }
         
-    with open("feature_calibration.json", "w") as f:
+    with open(out_file, "w") as f:
         json.dump(calib_summary, f, indent=2)
         
     print("=========================================================================================================")
-    print("✅ Calibration matrix saved to 'feature_calibration.json'!")
+    print(f"✅ Calibration matrix saved to '{out_file}'!")
 
 if __name__ == "__main__":
     main()
