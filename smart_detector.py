@@ -28,7 +28,7 @@ def main():
     
     # Start native hardware event guards (Keyboard & Trackpad)
     hardware_guards.start_guards()
-    
+
     # Explicitly find and select Built-in Microphone hardware device
     builtin_device_id, dev_name = find_builtin_mic()
     print(f"🎙️ Target Hardware: [{builtin_device_id}] {dev_name}")
@@ -38,7 +38,8 @@ def main():
     print("====================================")
     print(f"🤖 Stage 1 DSP Filter + Stage 2 ML Classifier ({feature_type.upper()}) Active")
     print("🛡️ Multi-Sensor Guards: Keyboard & Trackpad Active")
-    print("💬 Action: Smart WhatsApp Toggle (Open / Hide)")
+    print("📳 Haptic Feedback: Trackpad confirmation clicks enabled")
+    print("💬 Action: Double-tap = Toggle WhatsApp | Triple-tap = Play/Pause Music")
     print("🎙️  Listening to chassis... (Double-tap metal palm rest!)")
     print("Press Ctrl+C to stop.\n")
     
@@ -46,23 +47,25 @@ def main():
     last_tap_ratio = 0.0
     last_tap_volume = 0.0
     last_tap_centroid = 0.0
+    last_tap_side = ""
+    tap_count = 0
     last_action_time = 0.0
     event_counter = 0
     buffer_history = np.zeros(WINDOW_SIZE)
-    
+
     def callback(indata, frames, time_info, status):
-        nonlocal last_tap_time, last_tap_ratio, last_tap_volume, last_tap_centroid, last_action_time, event_counter, buffer_history
+        nonlocal last_tap_time, last_tap_ratio, last_tap_volume, last_tap_centroid, last_tap_side, tap_count, last_action_time, event_counter, buffer_history
         sig = indata.flatten()
         volume = np.linalg.norm(sig) * 10
         current_time = time.time()
-        
+
         # Maintain rolling 2048-sample window
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
-        
-        if 4.5 <= volume <= 85.0:
+
+        if 3.5 <= volume <= 85.0:
             event_counter += 1
-            
+
             # Check Hardware Suppression Guards (0% CPU)
             if hardware_guards.is_typing_active(current_time):
                 if "--debug" in sys.argv:
@@ -106,9 +109,9 @@ def main():
             pre_rms = np.sqrt(np.mean(pre_impact**2)) + 1e-6 if len(pre_impact) > 0 else 1e-6
             pre_surge_ratio = rms / pre_rms
             
-            # Adaptive Pre-Surge: Faint events (< 5.0 Vol) require 2.2x pre-surge proof
-            min_pre_surge = 2.2 if volume < 5.0 else 1.8
-            is_dsp_candidate = (volume >= 3.2) and (volume <= 85.0) and (crest_factor >= 1.15) and (hp_ratio >= 0.04 or pre_surge_ratio >= min_pre_surge)
+            # Adaptive Pre-Surge: Relaxed for gentle taps
+            min_pre_surge = 1.5 if volume < 5.0 else 1.8
+            is_dsp_candidate = (volume >= 3.2) and (volume <= 85.0) and (crest_factor >= 1.10) and (hp_ratio >= 0.03 or pre_surge_ratio >= min_pre_surge)
             
             if is_dsp_candidate:
                 # Stage 2: 2D Spectrogram ML Model Verification
@@ -118,11 +121,10 @@ def main():
                 confidence = probs[pred_idx] * 100
                 predicted_label = categories[pred_idx]
                 
-                # v1.0: LEFT palm rest only (RIGHT requires dual-mic v2.0 for cross-talk rejection)
-                is_valid_tap = predicted_label in ["left_palm_rest"]
+                is_valid_tap = predicted_label in ["left_palm_rest", "right_palm_rest"]
                 
-                # Dynamic Confidence Threshold: 50% for damped Right Taps, 65% for Left Taps
-                min_conf = 50.0 if predicted_label == "right_palm_rest" else 65.0
+                # Dynamic Confidence Threshold: 35% for damped Right Taps, 60% for Left Taps
+                min_conf = 35.0 if predicted_label == "right_palm_rest" else 60.0
                 
                 # Spectral Centroid Match: Tolerance < 1200 Hz, OR High ML Confidence (>= 90%) Bypass
                 centroid_delta = abs(spectral_centroid - last_tap_centroid)
@@ -131,29 +133,50 @@ def main():
                 if is_valid_tap and confidence >= min_conf and is_centroid_match:
                     time_since_last = current_time - last_tap_time
                     vol_ratio = volume / (last_tap_volume + 1e-6)
-                    
-                    # Ignore rebound decay echo (< 100ms) after Tap 1 without resetting state!
-                    if time_since_last < 0.10 and last_tap_time > 0:
+
+                    # Ignore rebound decay echo (< 150ms) without resetting state!
+                    if time_since_last < 0.15 and last_tap_time > 0:
                         pass
-                    elif 0.10 <= time_since_last <= 0.85 and (0.15 <= vol_ratio <= 5.0):
-                        # 0.5s Action Debounce Lock: Fast, responsive double-taps
-                        if (current_time - last_action_time) >= 0.5:
-                            side_str = " (LEFT)" if predicted_label == "left_palm_rest" else (" (RIGHT)" if predicted_label == "right_palm_rest" else "")
-                            print(f"\n✌️ DOUBLE-TAP DETECTED!{side_str} (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
-                            fire_double_tap_confirmation()
-                            actions.execute_action("whatsapp")
-                            last_action_time = current_time
-                        last_tap_time = 0
-                        last_tap_ratio = 0.0
-                        last_tap_volume = 0.0
-                        last_tap_centroid = 0.0
+                    elif 0.15 <= time_since_last <= 0.85 and (0.15 <= vol_ratio <= 5.0):
+                        tap_count += 1
+
+                        if tap_count == 2:
+                            # DOUBLE-TAP: Toggle WhatsApp
+                            if (current_time - last_action_time) >= 0.5:
+                                side_str = " (RIGHT)" if last_tap_side == "right" else " (LEFT)"
+                                print(f"\n✌️ DOUBLE-TAP!{side_str} (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
+                                fire_double_tap_confirmation()
+                                actions.execute_action("whatsapp")
+                                last_action_time = current_time
+                            last_tap_time = current_time
+                            last_tap_volume = volume
+                        elif tap_count >= 3:
+                            # TRIPLE-TAP: Open WhatsApp (or different action)
+                            if (current_time - last_action_time) >= 0.3:
+                                print(f"\n🔥 TRIPLE-TAP! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
+                                fire_double_tap_confirmation()
+                                actions.execute_action("apple_music")
+                                last_action_time = current_time
+                            tap_count = 0
+                            last_tap_time = 0
+                            last_tap_volume = 0.0
+                        else:
+                            last_tap_time = current_time
+                            last_tap_volume = volume
                     else:
-                        side_str = " [LEFT]" if predicted_label == "left_palm_rest" else (" [RIGHT]" if predicted_label == "right_palm_rest" else "")
-                        print(f" 👆 Tap 1 captured{side_str}... (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
-                        last_tap_time = current_time
-                        last_tap_ratio = ratio
-                        last_tap_volume = volume
-                        last_tap_centroid = spectral_centroid
+                        # Suppress shadow taps within 700ms after a successful action
+                        if (current_time - last_action_time) < 0.70:
+                            tap_count = 0
+                            last_tap_time = 0
+                        else:
+                            side_str = " [RIGHT]" if predicted_label == "right_palm_rest" else " [LEFT]"
+                            print(f" 👆 Tap 1 captured{side_str}... (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
+                            tap_count = 1
+                            last_tap_time = current_time
+                            last_tap_ratio = ratio
+                            last_tap_volume = volume
+                            last_tap_centroid = spectral_centroid
+                            last_tap_side = "right" if predicted_label == "right_palm_rest" else "left"
                 else:
                     if "--debug" in sys.argv:
                         if predicted_label in ["left_palm_rest", "right_palm_rest", "tap"]:
