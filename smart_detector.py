@@ -122,11 +122,7 @@ def main():
                 confidence = probs[pred_idx] * 100
                 predicted_label = categories[pred_idx]
                 is_valid_tap = predicted_label in ["left_palm_rest", "right_palm_rest", "tap"]
-                
-                # Pure Multi-Factor Empirical Spatial Calibration (Volume + Spectral Centroid)
-                # Left Taps: Vol >= 7.5 OR (Vol >= 4.5 and Centroid >= 330 Hz)
-                is_physically_left = (volume >= 7.5) or (volume >= 4.5 and spectral_centroid >= 330.0)
-                detected_side = "left" if is_physically_left else "right"
+                detected_side = "right" if predicted_label == "right_palm_rest" else "left"
                 
                 # Dynamic Confidence Threshold: 35% for Right Taps, 55% for Left Taps
                 min_conf = 35.0 if detected_side == "right" else 55.0
