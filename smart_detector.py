@@ -121,6 +121,7 @@ def main():
                 probs = clf.predict_proba([features])[0]
                 confidence = probs[pred_idx] * 100
                 predicted_label = categories[pred_idx]
+                is_valid_tap = predicted_label in ["left_palm_rest", "right_palm_rest", "tap"]
                 
                 # Pure Multi-Factor Empirical Spatial Calibration (Volume + Spectral Centroid)
                 # Left Taps: Vol >= 7.5 OR (Vol >= 4.5 and Centroid >= 330 Hz)
