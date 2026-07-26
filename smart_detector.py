@@ -122,10 +122,13 @@ def main():
                 confidence = probs[pred_idx] * 100
                 predicted_label = categories[pred_idx]
                 
-                is_valid_tap = predicted_label in ["left_palm_rest", "right_palm_rest"]
+                # Pure Multi-Factor Empirical Spatial Calibration (Volume + Spectral Centroid)
+                # Left Taps: Vol >= 7.5 OR (Vol >= 4.5 and Centroid >= 330 Hz)
+                is_physically_left = (volume >= 7.5) or (volume >= 4.5 and spectral_centroid >= 330.0)
+                detected_side = "left" if is_physically_left else "right"
                 
-                # Dynamic Confidence Threshold: 35% for damped Right Taps, 60% for Left Taps
-                min_conf = 35.0 if predicted_label == "right_palm_rest" else 60.0
+                # Dynamic Confidence Threshold: 35% for Right Taps, 55% for Left Taps
+                min_conf = 35.0 if detected_side == "right" else 55.0
                 
                 # Spectral Centroid Match: Tolerance < 1200 Hz, OR High ML Confidence (>= 90%) Bypass
                 centroid_delta = abs(spectral_centroid - last_tap_centroid)
@@ -143,15 +146,12 @@ def main():
 
                         # DOUBLE-TAP DETECTED!
                         if (current_time - last_action_time) >= 0.5:
-                            is_right_side = (predicted_label == "right_palm_rest") or (last_tap_side == "right")
-                            if is_right_side:
+                            if detected_side == "right":
                                 print(f"\n✌️ DOUBLE-TAP! (RIGHT) (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
-                                print("🎵 Executing Action: APPLE MUSIC PLAY / PAUSE")
                                 fire_double_tap_confirmation()
                                 actions.execute_action("apple_music")
                             else:
                                 print(f"\n✌️ DOUBLE-TAP! (LEFT) (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
-                                print("💬 Executing Action: SMART WHATSAPP TOGGLE (OPEN / HIDE)")
                                 fire_double_tap_confirmation()
                                 actions.execute_action("whatsapp")
                             last_action_time = current_time
@@ -166,14 +166,14 @@ def main():
                             tap_count = 0
                             last_tap_time = 0
                         else:
-                            side_str = " [RIGHT]" if predicted_label == "right_palm_rest" else " [LEFT]"
+                            side_str = f" [{detected_side.upper()}]"
                             print(f" 👆 Tap 1 captured{side_str}... (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
                             tap_count = 1
                             last_tap_time = current_time
                             last_tap_ratio = ratio
                             last_tap_volume = volume
                             last_tap_centroid = spectral_centroid
-                            last_tap_side = "right" if predicted_label == "right_palm_rest" else "left"
+                            last_tap_side = detected_side
                 else:
                     if "--debug" in sys.argv:
                         if predicted_label in ["left_palm_rest", "right_palm_rest", "tap"]:
