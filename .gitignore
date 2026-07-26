@@ -221,3 +221,4 @@ __marimo__/
 # Morse dataset and trained model binary
 dataset/
 model.pkl
+*.wav

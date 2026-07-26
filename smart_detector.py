@@ -8,7 +8,7 @@ import actions
 
 import hardware_guards
 from haptic_feedback import fire_double_tap_confirmation
-from utils import extract_lean_305_features, find_builtin_mic, SAMPLE_RATE
+from utils import extract_lean_305_features, apply_medium_thud_dsp_filter, compute_vibration_trail_ratio, count_impulse_peaks, find_builtin_mic, SAMPLE_RATE
 
 # 350ms Double-Tap Window for snappy physical double-taps
 DOUBLE_TAP_WINDOW = 16800
@@ -34,9 +34,10 @@ def main():
     print(f"🎙️ Target Hardware: [{builtin_device_id}] {dev_name}")
 
     print("==========================================================================")
-    print(f"   MORSE - 350ms Double-Tap Native AI Engine ({model_name})")
+    print("   MORSE - Powered by TLM 1.0 (Tap Learning Model Engine)")
     print("==========================================================================")
-    print("🤖 Stage 1 DSP Window + Stage 2 ML Double-Tap Classifier (350ms Window) Active")
+    print("🤖 Stage 1 DSP Window + Stage 2 TLM 1.0 Tap Classifier (350ms Window) Active")
+    print("🎧 Medium-Tier Impulse Noise Cancellation Active (Strips TV, speech & AC hum)")
     print("🛡️ Multi-Sensor Guards: Keyboard, Trackpad & Control Key Toggle Active")
     print("📳 Haptic Feedback: Trackpad confirmation clicks enabled")
     print("💬 Actions: Left Double-Tap = Toggle WhatsApp | Right Double-Tap = Play/Pause Music")
@@ -45,12 +46,21 @@ def main():
     
     last_action_time = 0.0
     buffer_history = np.zeros(DOUBLE_TAP_WINDOW, dtype=np.float32)
+    ambient_history = [2.0]
+    dynamic_threshold = 3.5
 
     def callback(indata, frames, time_info, status):
-        nonlocal last_action_time, buffer_history
+        nonlocal last_action_time, buffer_history, ambient_history, dynamic_threshold
         sig = indata.flatten()
         volume = np.linalg.norm(sig) * 10
         current_time = time.time()
+
+        # Dynamic Noise Floor Auto-Adaptation (Zero Calibration Needed!)
+        if volume < 15.0:
+            ambient_history.append(volume)
+            if len(ambient_history) > 30:
+                ambient_history.pop(0)
+            dynamic_threshold = max(2.2, np.median(ambient_history) * 2.4)
 
         # Maintain rolling 350ms window (16,800 samples)
         buffer_history = np.roll(buffer_history, -len(sig))
@@ -60,7 +70,7 @@ def main():
         if (current_time - last_action_time) < 1.20:
             return
 
-        if 2.2 <= volume <= 110.0:
+        if dynamic_threshold <= volume <= 110.0:
             # 1. Check Hardware Suppression Guards (0% CPU)
             if hardware_guards.is_engine_paused():
                 return
@@ -71,17 +81,36 @@ def main():
                 print("   🖱️  [MORSE GUARD] TRACKPAD BLOCKED (Active trackpad shield)")
                 return
             
-            # 2. Extract 305 features over the 500ms double-tap gesture window
-            features = extract_lean_305_features(buffer_history)
-            bass_ratio = features[300]  # Scalar 300 is 120-600Hz Bass Energy Ratio
-            
-            # 3. ML Model Classification
+            # 2. Stage 1 Impulse Gate: Verify 2 distinct physical impact peaks in 350ms buffer (Rejects single lid snaps & noise)
+            peak_count = count_impulse_peaks(buffer_history)
+            if peak_count != 2:
+                if "--debug" in sys.argv:
+                    print(f"   [🛡️ Impulse Gate Block: Peak Count {peak_count} != 2 (Single Noise / Lid Snap)]")
+                return
+
+            # 3. Compute Physical Mechanical Dispersion Ratio on RAW mic buffer
+            dispersion_ratio = compute_vibration_trail_ratio(buffer_history)
+            if dispersion_ratio < 0.14:
+                if "--debug" in sys.argv:
+                    print(f"   [🛡️ Physical Fallback Block: Dispersion Ratio {dispersion_ratio:.3f} < 0.14 (Air Snap/Lid Click)]")
+                return
+
+            # 3. Medium-Tier Impulse Noise Cancellation & Feature Extraction
+            clean_buffer = apply_medium_thud_dsp_filter(buffer_history)
+            features = extract_lean_305_features(clean_buffer)
+
+            # 4. ML Model Classification
             probs = clf.predict_proba([features])[0]
             pred_idx = clf.predict([features])[0]
             predicted_label = categories[pred_idx]
             confidence = probs[pred_idx] * 100.0
 
-            # 4. High-Precision Thresholding (Right >= 85.0%, Left >= 85.0%)
+            # Left-Mic Spatial Proximity Check (Mic is on Left side: Ultra-High Bass >= 0.48 guarantees Left)
+            bass_ratio = features[300]
+            if bass_ratio >= 0.48 and predicted_label == "double_right_palm":
+                predicted_label = "double_left_palm"
+
+            # 5. High-Precision Thresholding (Right >= 85.0%, Left >= 85.0%)
             min_required_conf = 85.0
             
             if predicted_label in ("double_left_palm", "double_right_palm") and confidence >= min_required_conf:
