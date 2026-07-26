@@ -16,7 +16,7 @@ def main():
     print("     MORSE - Class-Balanced 2D Spectrogram AI Model Trainer               ")
     print("==========================================================================")
     print("Loading 2D Spectrogram dataset matrices...")
-    X, y = load_dataset_2d(CATEGORIES)
+    X, y = load_dataset_2d(CATEGORIES, use_lean_305=True)
     
     if len(X) == 0:
         print("❌ No dataset samples found in 'dataset/'!")
@@ -72,14 +72,14 @@ def main():
     model_data = {
         "model": clf,
         "categories": CATEGORIES,
-        "model_name": "2D Spectrogram HistGradientBoosting",
-        "feature_type": "2d_spectrogram"
+        "model_name": "305-Feature Lean HistGradientBoosting",
+        "feature_type": "lean_305"
     }
     
     with open(MODEL_PATH, "wb") as f:
         pickle.dump(model_data, f)
         
-    print(f"✅ Successfully saved 2D Spectrogram model to '{MODEL_PATH}'!")
+    print(f"✅ Successfully saved 305-Feature model to '{MODEL_PATH}'!")
 
 if __name__ == "__main__":
     main()

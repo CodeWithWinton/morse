@@ -5,16 +5,19 @@ import sys
 last_keypress_time = 0.0
 last_trackpad_time = 0.0
 _listener_started = False
+engine_paused = False
+_last_fn_press_time = 0.0
 
 def _event_tap_worker():
-    global last_keypress_time, last_trackpad_time
+    global last_keypress_time, last_trackpad_time, engine_paused, _last_fn_press_time
     try:
         from Quartz import (
             CGEventTapCreate, kCGSessionEventTap, kCGHeadInsertEventTap,
             kCGEventKeyDown, kCGEventFlagsChanged, kCGEventLeftMouseDown,
             kCGEventRightMouseDown, kCGEventLeftMouseDragged, kCGEventScrollWheel,
             CFRunLoopGetCurrent, CFRunLoopAddSource, CFRunLoopRun,
-            kCFAllocatorDefault, kCFRunLoopCommonModes, CGEventTapCreateRunLoopSource
+            kCFAllocatorDefault, kCFRunLoopCommonModes, CGEventTapCreateRunLoopSource,
+            CGEventGetIntegerValueField, kCGKeyboardEventKeycode, kCGEventFlagMaskSecondaryFn
         )
         
         mask = (
@@ -27,8 +30,25 @@ def _event_tap_worker():
         )
 
         def callback(proxy, event_type, event, refcon):
-            global last_keypress_time, last_trackpad_time
+            global last_keypress_time, last_trackpad_time, engine_paused, _last_fn_press_time
             now = time.time()
+            
+            if event_type == kCGEventFlagsChanged:
+                from Quartz import CGEventGetFlags, kCGEventFlagMaskSecondaryFn
+                flags = CGEventGetFlags(event)
+                keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode)
+                
+                # Check for Fn key (keycode 63 OR kCGEventFlagMaskSecondaryFn 0x800000)
+                is_fn_event = (keycode == 63) or bool(flags & 0x00800000) or bool(flags & kCGEventFlagMaskSecondaryFn)
+                
+                if is_fn_event and (now - _last_fn_press_time) > 0.35:
+                    _last_fn_press_time = now
+                    engine_paused = not engine_paused
+                    if engine_paused:
+                        print("\n🔴 MORSE ENGINE PAUSED (Fn Toggle) - Muted")
+                    else:
+                        print("\n🟢 MORSE ENGINE RESUMED (Fn Toggle) - Listening")
+
             if event_type in (kCGEventKeyDown, kCGEventFlagsChanged):
                 last_keypress_time = now
             elif event_type in (kCGEventLeftMouseDown, kCGEventRightMouseDown, kCGEventLeftMouseDragged, kCGEventScrollWheel):
@@ -60,14 +80,18 @@ def start_guards():
         t = threading.Thread(target=_event_tap_worker, daemon=True)
         t.start()
 
-def is_typing_active(current_time=None, window_sec=0.45):
-    """Check if a physical keypress occurred within the active typing window."""
+def is_engine_paused():
+    """Check if MORSE engine is currently paused by Fn key toggle."""
+    return engine_paused
+
+def is_typing_active(current_time=None, window_sec=0.75):
+    """Check if a physical keypress occurred within the active typing window (increased to 0.75s)."""
     if current_time is None:
         current_time = time.time()
     return (current_time - last_keypress_time) < window_sec
 
-def is_trackpad_active(current_time=None, window_sec=0.40):
-    """Check if a trackpad click/drag/scroll occurred within the active trackpad window."""
+def is_trackpad_active(current_time=None, window_sec=0.65):
+    """Check if a trackpad click/drag/scroll occurred within active window (increased to 0.65s)."""
     if current_time is None:
         current_time = time.time()
     return (current_time - last_trackpad_time) < window_sec

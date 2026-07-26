@@ -118,24 +118,33 @@ with tab2:
         {"ID": "EXP-03", "Hypothesis": "1D FFT Spectral Model Classification", "Category": "ML Model", "Status": "⚠️ PARTIAL", "Result": "Worked for loud taps, but struggled with soft right tap overlap."},
         {"ID": "EXP-04", "Hypothesis": "2D STFT Spectrogram + HistGradientBoosting", "Category": "ML Model", "Status": "✅ PASSED", "Result": "Achieved 99.2% cross-validation accuracy across 6 categories."},
         {"ID": "EXP-05", "Hypothesis": "Empirical DSP Gating (Crest Factor >= 1.6, HP >= 0.05)", "Category": "DSP Filter", "Status": "✅ PASSED", "Result": "Completely eliminated wrist slide & desk thud false positives."},
-        {"ID": "EXP-06", "Hypothesis": "3D STFT Spectrogram Surface Topography Prominence", "Category": "Computer Vision", "Status": "⏳ QUEUED", "Result": "Next to test: Detect double-taps using 3D dual-peak surface mesh."},
-        {"ID": "EXP-07", "Hypothesis": "Adaptive Environmental Noise Floor Auto-Calibration", "Category": "DSP Filter", "Status": "⏳ QUEUED", "Result": "Next to test: 3-second noise profiling wizard on startup."}
+        {"ID": "EXP-06", "Hypothesis": "Triple-Sensor Fusion (Acoustic + ALS + Haptics)", "Category": "Multi-Sensor", "Status": "✅ PASSED", "Result": "ALS shadow depth rejects ambient noise; Force Touch trackpad gives haptic feedback."},
+        {"ID": "EXP-07", "Hypothesis": "Dynamic ML Confidence Thresholds (Right 35%, Left 60%)", "Category": "State Machine", "Status": "✅ PASSED", "Result": "Eliminated state-reset bug where noise events broke double-tap tracking."},
+        {"ID": "EXP-08", "Hypothesis": "3D Multi-Channel STFT Tensor (Time x Freq x Mics)", "Category": "Feature Eng", "Status": "⏳ QUEUED", "Result": "Treat dual-mic input as RGB channels for 3D tensor classification."},
+        {"ID": "EXP-09", "Hypothesis": "Mel-Filterbank Frequency Scaling (100–3500 Hz)", "Category": "Feature Eng", "Status": "⏳ QUEUED", "Result": "Rescale frequency bins to emphasize physical tap thud resonance."},
+        {"ID": "EXP-10", "Hypothesis": "CoreAudio Native C Bridge (coreaudio_bridge.dylib)", "Category": "Native HAL", "Status": "⏳ QUEUED", "Result": "Zero-dependency HAL stream probe via ctypes to unlock raw multi-mic input."},
+        {"ID": "EXP-11", "Hypothesis": "Pitch Matching (Fundamental Resonant Freq f0 via YIN)", "Category": "Feature Eng", "Status": "⏳ QUEUED", "Result": "Extract battery deck (180-260Hz) vs PCB (400-650Hz) structural pitch."},
+        {"ID": "EXP-12", "Hypothesis": "Spectral Color Timbre (MFCCs & Cosine Distance)", "Category": "Feature Eng", "Status": "⏳ QUEUED", "Result": "Volume-invariant spectral shape matching against golden tap color profiles."}
     ]
     
     exp_df = pd.DataFrame(experiments)
     st.dataframe(exp_df, use_container_width=True, hide_index=True)
 
 with tab3:
-    st.subheader("⚙️ Locked Physical Dynamic Bounds (`smart_detector.py`)")
+    st.subheader("⚙️ Locked Physical Dynamic Bounds & Multi-Sensor Config (`smart_detector.py`)")
     
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Volume Floor", "3.5 RMS", "Noise Cutoff")
     col2.metric("Volume Ceiling", "110.0 RMS", "Slam Bound")
     col3.metric("Min Crest Factor", "1.60", "Rub Rejection")
-    col4.metric("Min HP Ratio", "0.05", "Right Tap Attenuation")
+    col4.metric("Right Tap ML Conf", "35.0%", "Dynamic Adjusted")
 
     st.code("""
-# Active Stage 1 DSP Candidate Filter
+# Active Multi-Stage DSP & ML State Engine
+# 1. Hardware Event Tap Guard (CGEventTap background thread)
+# 2. Triple-Sensor Fusion (Acoustic + Ambient Light Sensor Shadow Depth)
+# 3. Dynamic ML Confidence Thresholds (Right: 35%, Left: 60%)
+
 is_dsp_candidate = (
     (volume >= 3.5) and 
     (volume <= 110.0) and 
@@ -143,3 +152,4 @@ is_dsp_candidate = (
     (hp_ratio >= 0.05 or pre_surge_ratio >= min_pre_surge)
 )
 """, language="python")
+
