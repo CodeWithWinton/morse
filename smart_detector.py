@@ -122,9 +122,9 @@ def main():
                 # Dynamic Confidence Threshold: 50% for damped Right Taps, 65% for Left Taps
                 min_conf = 50.0 if predicted_label == "right_palm_rest" else 65.0
                 
-                # Spectral Centroid Consistency Check for Tap 2 (Tolerance < 800 Hz)
+                # Spectral Centroid Match: Tolerance < 1200 Hz, OR High ML Confidence (>= 90%) Bypass
                 centroid_delta = abs(spectral_centroid - last_tap_centroid)
-                is_centroid_match = (last_tap_time == 0) or (centroid_delta < 800.0)
+                is_centroid_match = (last_tap_time == 0) or (centroid_delta < 1200.0) or (confidence >= 90.0)
                 
                 if is_valid_tap and confidence >= min_conf and is_centroid_match:
                     time_since_last = current_time - last_tap_time
@@ -133,7 +133,7 @@ def main():
                     # Ignore rebound decay echo (< 100ms) after Tap 1 without resetting state!
                     if time_since_last < 0.10 and last_tap_time > 0:
                         pass
-                    elif 0.10 <= time_since_last <= 0.75 and (0.15 <= vol_ratio <= 5.0):
+                    elif 0.10 <= time_since_last <= 0.85 and (0.15 <= vol_ratio <= 5.0):
                         # 0.5s Action Debounce Lock: Fast, responsive double-taps
                         if (current_time - last_action_time) >= 0.5:
                             side_str = " (LEFT)" if predicted_label == "left_palm_rest" else (" (RIGHT)" if predicted_label == "right_palm_rest" else "")
