@@ -67,7 +67,49 @@ def extract_2d_spectrogram(signal, original_rate=None, n_fft=256, hop_length=128
     max_val = np.max(spec_matrix)
     if max_val > 0:
         spec_matrix = spec_matrix / max_val
-    return spec_matrix.flatten()
+    flattened_spec = spec_matrix.flatten()
+
+    # --- Rich Physical Acoustic Feature Extraction ---
+    fft_full = np.abs(np.fft.rfft(sig))
+    total_energy = np.sum(fft_full) + 1e-6
+    freqs = np.fft.rfftfreq(len(sig), d=1.0/SAMPLE_RATE)
+    
+    # 1. Bass Energy Ratio (120 - 600 Hz aluminum structural resonance)
+    bass_ratio = np.sum(fft_full[(freqs >= 120) & (freqs <= 600)]) / total_energy
+    
+    # 2. High-Pass Energy Ratio (> 2500 Hz metal ping)
+    hp_ratio = np.sum(fft_full[freqs >= 2500]) / total_energy
+    
+    # 3. Spectral Centroid (Hz)
+    centroid = np.sum(freqs * fft_full) / total_energy
+    
+    # 4. Spectral Rolloff (Frequency below which 85% energy lies)
+    cum_energy = np.cumsum(fft_full)
+    rolloff_idx = np.where(cum_energy >= 0.85 * total_energy)[0]
+    rolloff = freqs[rolloff_idx[0]] if len(rolloff_idx) > 0 else 0.0
+    
+    # 5. Zero Crossing Rate (ZCR)
+    zcr = np.mean(np.abs(np.diff(np.signbit(sig))))
+    
+    # 6. Spectral Flatness (Geometric Mean / Arithmetic Mean)
+    gmean = np.exp(np.mean(np.log(fft_full + 1e-6)))
+    amean = np.mean(fft_full) + 1e-6
+    flatness = gmean / amean
+    
+    # 7. Fundamental Pitch Mode (Hz via Autocorrelation)
+    autocorr = np.correlate(sig, sig, mode='full')
+    autocorr = autocorr[len(autocorr)//2:]
+    d_autocorr = np.diff(autocorr)
+    start_search = int(SAMPLE_RATE / 1000) # Min 1000 Hz search range
+    if len(d_autocorr) > start_search:
+        peak_idx = np.argmax(autocorr[start_search:]) + start_search
+        pitch = SAMPLE_RATE / peak_idx if peak_idx > 0 else 0.0
+    else:
+        pitch = 0.0
+
+    # Append 7 Physical Features to 2D Spectrogram Array
+    phys_features = np.array([bass_ratio, hp_ratio, centroid / 10000.0, rolloff / 10000.0, zcr, flatness, pitch / 10000.0])
+    return np.concatenate([flattened_spec, phys_features])
 
 def load_dataset(categories):
     """Load and extract 1D features for all specified dataset categories (.npy and .wav supported)."""
@@ -112,10 +154,13 @@ def load_dataset_2d(categories):
             X.append(extract_2d_spectrogram(signal, original_rate=sr))
             y.append(label_idx)
             
-            # Data Augmentation: For right_palm_rest, generate 1.25x and 0.80x scale copies for volume invariance
+            # Data Augmentation for 1:1 Dataset Equilibrium & Volume Invariance
             if cat == "right_palm_rest":
                 X.append(extract_2d_spectrogram(signal * 1.25, original_rate=sr))
                 y.append(label_idx)
                 X.append(extract_2d_spectrogram(signal * 0.80, original_rate=sr))
+                y.append(label_idx)
+            elif cat == "left_palm_rest":
+                X.append(extract_2d_spectrogram(signal * 1.15, original_rate=sr))
                 y.append(label_idx)
     return np.array(X), np.array(y)

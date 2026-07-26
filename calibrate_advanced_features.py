@@ -67,8 +67,7 @@ def main():
             
             if vol >= 2.0 and (now - last_event) > 0.4:
                 peak_idx = np.argmax(np.abs(buffer_history))
-                # Only process if the peak is somewhat central in the buffer
-                if 1440 < peak_idx < (WINDOW_SIZE - 1000):
+                if True:
                     features = extract_advanced_features(buffer_history, peak_idx)
                     records.append(features)
                     count += 1

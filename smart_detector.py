@@ -111,8 +111,8 @@ def main():
             
             # Adaptive Pre-Surge: Relaxed for gentle taps
             min_pre_surge = 1.3 if volume < 5.0 else 1.8
-            # Empirical Physical Dynamic Range: 2.0 Noise Floor to 110.0 Slam Ceiling
-            is_dsp_candidate = (volume >= 2.0) and (volume <= 110.0) and (crest_factor >= 1.05) and (hp_ratio >= 0.03 or pre_surge_ratio >= min_pre_surge)
+            # Empirical Physical DSP Limits (Based on 60/60 Left/Right tests)
+            is_dsp_candidate = (volume >= 3.5) and (volume <= 110.0) and (crest_factor >= 1.60) and (hp_ratio >= 0.05 or pre_surge_ratio >= min_pre_surge)
             
             if is_dsp_candidate:
                 # Stage 2: 2D Spectrogram + Rich Physical Acoustic Feature ML Model Verification

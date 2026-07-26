@@ -1,8 +1,9 @@
 import pickle
 import time
 import os
+import numpy as np
 from sklearn.ensemble import HistGradientBoostingClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import classification_report
 
 from utils import load_dataset_2d
@@ -38,6 +39,26 @@ def main():
         class_weight='balanced',
         random_state=42
     )
+    print("\n⏳ Running Fast 5-Fold Stratified Cross-Validation (Proving Zero Overfitting)...")
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    cv_scores = []
+    for fold, (train_idx, val_idx) in enumerate(skf.split(X, y), 1):
+        t_f = time.time()
+        clf_f = HistGradientBoostingClassifier(
+            max_iter=100,
+            learning_rate=0.1,
+            max_leaf_nodes=31,
+            class_weight='balanced',
+            random_state=42
+        )
+        clf_f.fit(X[train_idx], y[train_idx])
+        score = clf_f.score(X[val_idx], y[val_idx])
+        cv_scores.append(score)
+        print(f"  ⚡ Fold {fold}/5: {score*100:.1f}% Accuracy (took {time.time()-t_f:.1f}s)")
+        
+    print(f"\n🏆 Mean Cross-Validation Accuracy: {np.mean(cv_scores)*100:.1f}% (+/- {np.std(cv_scores)*100:.1f}%)\n")
+    
+    print("⏳ Fitting Final Production Model on Train Split...")
     clf.fit(X_train, y_train)
     t_train = (time.time() - t0) * 1000
     

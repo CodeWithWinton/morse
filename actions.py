@@ -40,6 +40,20 @@ def trigger_whatsapp():
     '''
     subprocess.run(["osascript", "-e", script], check=False)
 
+def trigger_whatsapp_open():
+    """Open/focus WhatsApp."""
+    script = 'do shell script "open -a WhatsApp"'
+    subprocess.run(["osascript", "-e", script], check=False)
+
+def trigger_whatsapp_hide():
+    """Hide WhatsApp (Cmd+H)."""
+    script = '''
+    tell application "System Events"
+        set visible of process "WhatsApp" to false
+    end tell
+    '''
+    subprocess.run(["osascript", "-e", script], check=False)
+
 def execute_action(action_name="mute"):
     if action_name == "mute":
         print("🔊 Executing Action: MUTE / UNMUTE TOGGLE")
@@ -50,6 +64,12 @@ def execute_action(action_name="mute"):
     elif action_name == "whatsapp":
         print("💬 Executing Action: SMART WHATSAPP TOGGLE (OPEN / HIDE)")
         trigger_whatsapp()
+    elif action_name == "whatsapp_open":
+        print("💬 Executing Action: OPEN WHATSAPP")
+        trigger_whatsapp_open()
+    elif action_name == "whatsapp_hide":
+        print("💬 Executing Action: HIDE WHATSAPP")
+        trigger_whatsapp_hide()
     elif action_name == "next":
         print("⏭️ Executing Action: APPLE MUSIC NEXT TRACK")
         trigger_apple_music_next()
