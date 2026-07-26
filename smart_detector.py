@@ -7,6 +7,7 @@ import os
 import actions
 
 import hardware_guards
+from haptic_feedback import fire_double_tap_confirmation
 
 from utils import extract_features, extract_2d_spectrogram, find_builtin_mic, SAMPLE_RATE, WINDOW_SIZE
 
@@ -59,7 +60,7 @@ def main():
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
         
-        if 3.2 <= volume <= 85.0:
+        if 4.5 <= volume <= 85.0:
             event_counter += 1
             
             # Check Hardware Suppression Guards (0% CPU)
@@ -117,7 +118,8 @@ def main():
                 confidence = probs[pred_idx] * 100
                 predicted_label = categories[pred_idx]
                 
-                is_valid_tap = predicted_label in ["left_palm_rest", "right_palm_rest", "tap"]
+                # v1.0: LEFT palm rest only (RIGHT requires dual-mic v2.0 for cross-talk rejection)
+                is_valid_tap = predicted_label in ["left_palm_rest"]
                 
                 # Dynamic Confidence Threshold: 50% for damped Right Taps, 65% for Left Taps
                 min_conf = 50.0 if predicted_label == "right_palm_rest" else 65.0
@@ -138,6 +140,7 @@ def main():
                         if (current_time - last_action_time) >= 0.5:
                             side_str = " (LEFT)" if predicted_label == "left_palm_rest" else (" (RIGHT)" if predicted_label == "right_palm_rest" else "")
                             print(f"\n✌️ DOUBLE-TAP DETECTED!{side_str} (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
+                            fire_double_tap_confirmation()
                             actions.execute_action("whatsapp")
                             last_action_time = current_time
                         last_tap_time = 0
