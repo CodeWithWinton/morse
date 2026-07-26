@@ -13,19 +13,28 @@ def _event_tap_worker():
     try:
         from Quartz import (
             CGEventTapCreate, kCGSessionEventTap, kCGHeadInsertEventTap,
-            kCGEventKeyDown, kCGEventFlagsChanged, kCGEventLeftMouseDown,
-            kCGEventRightMouseDown, kCGEventLeftMouseDragged, kCGEventScrollWheel,
-            CFRunLoopGetCurrent, CFRunLoopAddSource, CFRunLoopRun,
+            kCGEventKeyDown, kCGEventFlagsChanged,
+            kCGEventLeftMouseDown, kCGEventLeftMouseUp, kCGEventLeftMouseDragged,
+            kCGEventRightMouseDown, kCGEventRightMouseUp, kCGEventRightMouseDragged,
+            kCGEventMouseMoved, kCGEventOtherMouseDown, kCGEventOtherMouseUp, kCGEventOtherMouseDragged,
+            kCGEventScrollWheel, CFRunLoopGetCurrent, CFRunLoopAddSource, CFRunLoopRun,
             kCFAllocatorDefault, kCFRunLoopCommonModes, CFMachPortCreateRunLoopSource,
-            CGEventGetIntegerValueField, kCGKeyboardEventKeycode, kCGEventFlagMaskSecondaryFn
+            CGEventGetIntegerValueField, kCGKeyboardEventKeycode
         )
         
         mask = (
             (1 << kCGEventKeyDown) |
             (1 << kCGEventFlagsChanged) |
             (1 << kCGEventLeftMouseDown) |
+            (1 << kCGEventLeftMouseUp) |
             (1 << kCGEventRightMouseDown) |
+            (1 << kCGEventRightMouseUp) |
+            (1 << kCGEventMouseMoved) |
             (1 << kCGEventLeftMouseDragged) |
+            (1 << kCGEventRightMouseDragged) |
+            (1 << kCGEventOtherMouseDown) |
+            (1 << kCGEventOtherMouseUp) |
+            (1 << kCGEventOtherMouseDragged) |
             (1 << kCGEventScrollWheel)
         )
 
@@ -51,7 +60,11 @@ def _event_tap_worker():
 
             if event_type in (kCGEventKeyDown, kCGEventFlagsChanged):
                 last_keypress_time = now
-            elif event_type in (kCGEventLeftMouseDown, kCGEventRightMouseDown, kCGEventLeftMouseDragged, kCGEventScrollWheel):
+            elif event_type in (
+                kCGEventLeftMouseDown, kCGEventLeftMouseUp, kCGEventRightMouseDown, kCGEventRightMouseUp,
+                kCGEventMouseMoved, kCGEventLeftMouseDragged, kCGEventRightMouseDragged,
+                kCGEventOtherMouseDown, kCGEventOtherMouseUp, kCGEventOtherMouseDragged, kCGEventScrollWheel
+            ):
                 last_trackpad_time = now
             return event
 
@@ -92,8 +105,8 @@ def is_typing_active(current_time=None, window_sec=0.75):
         current_time = time.time()
     return (current_time - last_keypress_time) < window_sec
 
-def is_trackpad_active(current_time=None, window_sec=0.65):
-    """Check if a trackpad click/drag/scroll occurred within active window (increased to 0.65s)."""
+def is_trackpad_active(current_time=None, window_sec=0.85):
+    """Check if a trackpad click/drag/scroll occurred within active window (increased to 0.85s)."""
     if current_time is None:
         current_time = time.time()
     return (current_time - last_trackpad_time) < window_sec
