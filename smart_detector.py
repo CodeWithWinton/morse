@@ -44,12 +44,13 @@ def main():
     last_tap_time = 0
     last_tap_ratio = 0.0
     last_tap_volume = 0.0
+    last_tap_centroid = 0.0
     last_action_time = 0.0
     event_counter = 0
     buffer_history = np.zeros(WINDOW_SIZE)
     
     def callback(indata, frames, time_info, status):
-        nonlocal last_tap_time, last_tap_ratio, last_tap_volume, last_action_time, event_counter, buffer_history
+        nonlocal last_tap_time, last_tap_ratio, last_tap_volume, last_tap_centroid, last_action_time, event_counter, buffer_history
         sig = indata.flatten()
         volume = np.linalg.norm(sig) * 10
         current_time = time.time()
@@ -95,14 +96,18 @@ def main():
             total_fft_energy = np.sum(fft_vals) + 1e-6
             hp_ratio = hp_energy / total_fft_energy
 
+            # Spectral Centroid Calculation (Hz)
+            spectral_centroid = np.sum(freqs * fft_vals) / (total_fft_energy + 1e-6)
+
             # Pre-Impact Baseline Surge Ratio (Impact energy vs 30ms pre-impact baseline energy)
             pre_impact_start = max(0, peak_idx - 1440) # 30ms pre-impact window at 48kHz
             pre_impact = buffer_history[pre_impact_start:peak_idx]
             pre_rms = np.sqrt(np.mean(pre_impact**2)) + 1e-6 if len(pre_impact) > 0 else 1e-6
             pre_surge_ratio = rms / pre_rms
             
-            # Dynamic Criteria: Right taps (damped high-freq) are accepted if pre_surge_ratio >= 1.8
-            is_dsp_candidate = (volume >= 3.2) and (volume <= 85.0) and (crest_factor >= 1.15) and (hp_ratio >= 0.04 or pre_surge_ratio >= 1.8)
+            # Adaptive Pre-Surge: Faint events (< 5.0 Vol) require 2.2x pre-surge proof
+            min_pre_surge = 2.2 if volume < 5.0 else 1.8
+            is_dsp_candidate = (volume >= 3.2) and (volume <= 85.0) and (crest_factor >= 1.15) and (hp_ratio >= 0.04 or pre_surge_ratio >= min_pre_surge)
             
             if is_dsp_candidate:
                 # Stage 2: 2D Spectrogram ML Model Verification
@@ -117,7 +122,11 @@ def main():
                 # Dynamic Confidence Threshold: 50% for damped Right Taps, 65% for Left Taps
                 min_conf = 50.0 if predicted_label == "right_palm_rest" else 65.0
                 
-                if is_valid_tap and confidence >= min_conf:
+                # Spectral Centroid Consistency Check for Tap 2 (Tolerance < 800 Hz)
+                centroid_delta = abs(spectral_centroid - last_tap_centroid)
+                is_centroid_match = (last_tap_time == 0) or (centroid_delta < 800.0)
+                
+                if is_valid_tap and confidence >= min_conf and is_centroid_match:
                     time_since_last = current_time - last_tap_time
                     vol_ratio = volume / (last_tap_volume + 1e-6)
                     
@@ -134,12 +143,14 @@ def main():
                         last_tap_time = 0
                         last_tap_ratio = 0.0
                         last_tap_volume = 0.0
+                        last_tap_centroid = 0.0
                     else:
                         side_str = " [LEFT]" if predicted_label == "left_palm_rest" else (" [RIGHT]" if predicted_label == "right_palm_rest" else "")
                         print(f" 👆 Tap 1 captured{side_str}... (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
                         last_tap_time = current_time
                         last_tap_ratio = ratio
                         last_tap_volume = volume
+                        last_tap_centroid = spectral_centroid
                 else:
                     if "--debug" in sys.argv:
                         if predicted_label == "tap":
