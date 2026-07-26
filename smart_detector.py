@@ -110,22 +110,31 @@ def main():
             pre_surge_ratio = rms / pre_rms
             
             # Adaptive Pre-Surge: Relaxed for gentle taps
-            min_pre_surge = 1.5 if volume < 5.0 else 1.8
-            # Locked Physical Dynamic Range: 3.5 Floor (noise cutoff) to 110.0 Ceiling (hardest slam)
-            is_dsp_candidate = (volume >= 3.5) and (volume <= 110.0) and (crest_factor >= 1.10) and (hp_ratio >= 0.03 or pre_surge_ratio >= min_pre_surge)
+            min_pre_surge = 1.3 if volume < 5.0 else 1.8
+            # Empirical Physical Dynamic Range: 2.0 Noise Floor to 110.0 Slam Ceiling
+            is_dsp_candidate = (volume >= 2.0) and (volume <= 110.0) and (crest_factor >= 1.05) and (hp_ratio >= 0.03 or pre_surge_ratio >= min_pre_surge)
             
             if is_dsp_candidate:
-                # Stage 2: 2D Spectrogram ML Model Verification
+                # Stage 2: 2D Spectrogram + Rich Physical Acoustic Feature ML Model Verification
                 features = extract_2d_spectrogram(buffer_history) if feature_type == "2d_spectrogram" else extract_features(buffer_history)
                 pred_idx = clf.predict([features])[0]
                 probs = clf.predict_proba([features])[0]
                 confidence = probs[pred_idx] * 100
                 predicted_label = categories[pred_idx]
                 is_valid_tap = predicted_label in ["left_palm_rest", "right_palm_rest", "tap"]
-                detected_side = "right" if predicted_label == "right_palm_rest" else "left"
                 
-                # Dynamic Confidence Threshold: 35% for Right Taps, 55% for Left Taps
-                min_conf = 35.0 if detected_side == "right" else 55.0
+                # Extract Physical Acoustic Features from feature array tail
+                bass_ratio, hp_feat, centroid_feat, rolloff_feat, zcr_feat, flatness_feat, pitch_feat = features[-7:]
+                pitch_hz = pitch_feat * 10000.0
+                centroid_hz = centroid_feat * 10000.0
+                
+                # Empirical Stage 1 Guardrail Spatial Side Determination
+                # Right Taps: ~103 Hz Chassis Pitch Mode OR HP < 0.15 OR Centroid < 2500 Hz
+                is_physically_right = (80.0 <= pitch_hz <= 150.0) or (hp_feat <= 0.15) or (centroid_hz < 2500.0) or (predicted_label == "right_palm_rest")
+                detected_side = "right" if is_physically_right else "left"
+                
+                # Dynamic Confidence Threshold: 30% for Right Taps, 50% for Left Taps
+                min_conf = 30.0 if detected_side == "right" else 50.0
                 
                 # Spectral Centroid Match: Tolerance < 1200 Hz, OR High ML Confidence (>= 90%) Bypass
                 centroid_delta = abs(spectral_centroid - last_tap_centroid)
