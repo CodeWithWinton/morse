@@ -128,9 +128,8 @@ def main():
                 pitch_hz = pitch_feat * 10000.0
                 centroid_hz = centroid_feat * 10000.0
                 
-                # Empirical Stage 1 Guardrail Spatial Side Determination
-                # Right Taps: ~103 Hz Chassis Pitch Mode OR HP < 0.15 OR Centroid < 2500 Hz
-                is_physically_right = (80.0 <= pitch_hz <= 150.0) or (hp_feat <= 0.15) or (centroid_hz < 2500.0) or (predicted_label == "right_palm_rest")
+                # Empirical Spatial Side Determination (ML Model Primary + Damped Centroid Guardrail)
+                is_physically_right = (predicted_label == "right_palm_rest") or (hp_feat < 0.08 and centroid_hz < 2000.0)
                 detected_side = "right" if is_physically_right else "left"
                 
                 # Dynamic Confidence Threshold: 30% for Right Taps, 50% for Left Taps
@@ -146,10 +145,10 @@ def main():
 
                     is_same_side = (last_tap_side == "") or (detected_side == last_tap_side)
 
-                    # Ignore rebound decay echo (< 150ms) without resetting state!
-                    if time_since_last < 0.15 and last_tap_time > 0:
+                    # Ignore rebound decay echo (< 180ms) without resetting state!
+                    if time_since_last < 0.18 and last_tap_time > 0:
                         pass
-                    elif 0.15 <= time_since_last <= 0.85 and (0.15 <= vol_ratio <= 5.0) and is_same_side:
+                    elif 0.18 <= time_since_last <= 0.85 and (0.15 <= vol_ratio <= 5.0) and is_same_side:
                         tap_count += 1
 
                         # DOUBLE-TAP DETECTED!
@@ -169,8 +168,8 @@ def main():
                         last_tap_centroid = 0.0
                         last_tap_side = ""
                     else:
-                        # Suppress shadow taps within 700ms after a successful action
-                        if (current_time - last_action_time) < 0.70:
+                        # Suppress speaker audio feedback & shadow taps within 1.20s after action
+                        if (current_time - last_action_time) < 1.20:
                             tap_count = 0
                             last_tap_time = 0
                         else:
