@@ -149,11 +149,13 @@ def main():
                                 fire_double_tap_confirmation()
                                 actions.execute_action("whatsapp")
                                 last_action_time = current_time
-                            last_tap_time = current_time
-                            last_tap_volume = volume
+                            tap_count = 0
+                            last_tap_time = 0
+                            last_tap_volume = 0.0
+                            last_tap_centroid = 0.0
                         elif tap_count >= 3:
-                            # TRIPLE-TAP: Open WhatsApp (or different action)
-                            if (current_time - last_action_time) >= 0.3:
+                            # TRIPLE-TAP: Apple Music Play / Pause
+                            if (current_time - last_action_time) >= 0.5:
                                 print(f"\n🔥 TRIPLE-TAP! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
                                 fire_double_tap_confirmation()
                                 actions.execute_action("apple_music")
@@ -161,6 +163,7 @@ def main():
                             tap_count = 0
                             last_tap_time = 0
                             last_tap_volume = 0.0
+                            last_tap_centroid = 0.0
                         else:
                             last_tap_time = current_time
                             last_tap_volume = volume
