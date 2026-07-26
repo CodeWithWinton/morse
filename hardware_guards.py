@@ -16,7 +16,7 @@ def _event_tap_worker():
             kCGEventKeyDown, kCGEventFlagsChanged, kCGEventLeftMouseDown,
             kCGEventRightMouseDown, kCGEventLeftMouseDragged, kCGEventScrollWheel,
             CFRunLoopGetCurrent, CFRunLoopAddSource, CFRunLoopRun,
-            kCFAllocatorDefault, kCFRunLoopCommonModes, CGEventTapCreateRunLoopSource,
+            kCFAllocatorDefault, kCFRunLoopCommonModes, CFMachPortCreateRunLoopSource,
             CGEventGetIntegerValueField, kCGKeyboardEventKeycode, kCGEventFlagMaskSecondaryFn
         )
         
@@ -34,12 +34,12 @@ def _event_tap_worker():
             now = time.time()
             
             if event_type == kCGEventFlagsChanged:
-                from Quartz import CGEventGetFlags, kCGEventFlagMaskSecondaryFn
+                from Quartz import CGEventGetFlags
                 flags = CGEventGetFlags(event)
                 keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode)
                 
                 # Check for Fn key (keycode 63 OR kCGEventFlagMaskSecondaryFn 0x800000)
-                is_fn_event = (keycode == 63) or bool(flags & 0x00800000) or bool(flags & kCGEventFlagMaskSecondaryFn)
+                is_fn_event = (keycode == 63) or bool(flags & 0x00800000)
                 
                 if is_fn_event and (now - _last_fn_press_time) > 0.35:
                     _last_fn_press_time = now
@@ -65,12 +65,14 @@ def _event_tap_worker():
         )
         
         if tap:
-            source = CGEventTapCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+            source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
             CFRunLoopAddSource(CFRunLoopGetCurrent(), source, kCFRunLoopCommonModes)
+            print("🛡️  [Quartz Guard] Keyboard & Trackpad event listener ACTIVE!")
             CFRunLoopRun()
+        else:
+            print("\n⚠️  [Quartz Warning] CGEventTap failed to initialize. Enable Terminal in System Settings -> Privacy & Security -> Accessibility for keyboard suppression.")
     except Exception as e:
-        # Graceful fallback if Quartz permissions are limited
-        pass
+        print(f"\n⚠️  [Quartz Warning] CGEventTap Error: {e}")
 
 def start_guards():
     """Start background hardware event listener thread."""
