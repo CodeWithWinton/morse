@@ -101,6 +101,8 @@ def main():
                     print("💬 Executing Action: SMART WHATSAPP TOGGLE (OPEN / HIDE)\n")
                     actions.trigger_whatsapp()
                 elif predicted_label == "double_right_palm":
+                    # Extend lockout to 2.80s for media toggles to shield against speaker audio initialization surge
+                    last_action_time = current_time + 1.30
                     print(f"\n✌️ DOUBLE-TAP (RIGHT)! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
                     print("🎵 Executing Action: APPLE MUSIC PLAY / PAUSE\n")
                     actions.trigger_apple_music_playpause()
