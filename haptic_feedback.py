@@ -1,34 +1,15 @@
+import os
 import sys
 import time
 import ctypes
-import ctypes.util
 
-# Load AppKit framework for NSHapticFeedbackManager
-appkit = ctypes.cdll.LoadLibrary(ctypes.util.find_library("AppKit"))
-objc = ctypes.cdll.LoadLibrary(ctypes.util.find_library("objc"))
-
-# Objective-C method signature bindings
-objc.objc_getClass.restype = ctypes.c_void_p
-objc.objc_getClass.argtypes = [ctypes.c_char_p]
-
-objc.sel_registerName.restype = ctypes.c_void_p
-objc.sel_registerName.argtypes = [ctypes.c_char_p]
-
-objc.objc_msgSend.restype = ctypes.c_void_p
-objc.objc_msgSend.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-
-NSHapticFeedbackManager = objc.objc_getClass(b"NSHapticFeedbackManager")
-defaultPerformer_sel = objc.sel_registerName(b"defaultPerformer")
-perform_sel = objc.sel_registerName(b"performFeedbackPattern:performanceTime:")
-
-# Setup performFeedbackPattern argument types
-perform_msgSend = ctypes.CFUNCTYPE(
-    None,
-    ctypes.c_void_p,
-    ctypes.c_void_p,
-    ctypes.c_long,  # NSHapticFeedbackPattern
-    ctypes.c_long   # NSHapticFeedbackPerformanceTime
-)(objc.objc_msgSend)
+DYLIB_PATH = os.path.join(os.path.dirname(__file__), "haptic_bridge.dylib")
+try:
+    libhaptic = ctypes.CDLL(DYLIB_PATH)
+    libhaptic.fire_haptic_native.argtypes = [ctypes.c_long]
+    libhaptic.fire_haptic_native.restype = None
+except Exception as e:
+    libhaptic = None
 
 def fire_haptic(pattern=0):
     """
@@ -37,13 +18,12 @@ def fire_haptic(pattern=0):
     pattern 1: Alignment Snapping Click
     pattern 2: Level Change Click
     """
-    try:
-        performer = objc.objc_msgSend(NSHapticFeedbackManager, defaultPerformer_sel)
-        if performer:
-            perform_msgSend(performer, perform_sel, pattern, 0)
+    if libhaptic:
+        try:
+            libhaptic.fire_haptic_native(pattern)
             return True
-    except Exception as e:
-        pass
+        except Exception:
+            pass
     return False
 
 def fire_double_tap_confirmation():
@@ -70,4 +50,4 @@ if __name__ == "__main__":
     
     print("📳 Click 3: Double-Tap Confirmation Click-Click...")
     fire_double_tap_confirmation()
-    print("\n✅ Haptic test finished!")
+    print("\n✅ Haptic test finished cleanly!")
