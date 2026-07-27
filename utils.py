@@ -81,10 +81,15 @@ def extract_lean_305_features(signal, original_rate=None, n_fft=256, hop_length=
             sig
         )
         
-    if len(sig) < WINDOW_SIZE:
-        sig = np.pad(sig, (0, WINDOW_SIZE - len(sig)))
-    elif len(sig) > WINDOW_SIZE:
-        sig = sig[-WINDOW_SIZE:]
+    # Position-Invariant Peak Alignment: Center peak impact at sample 4800 (100ms into 500ms window)
+    target_samples = 24000
+    if len(sig) > 0:
+        peak_idx = np.argmax(np.abs(sig))
+        start_idx = max(0, peak_idx - 4800)
+        sig = sig[start_idx:start_idx + target_samples]
+        
+    if len(sig) < target_samples:
+        sig = np.pad(sig, (0, target_samples - len(sig)))
         
     num_frames = (len(sig) - n_fft) // hop_length + 1
     window = np.hanning(n_fft)
@@ -120,8 +125,47 @@ def extract_lean_305_features(signal, original_rate=None, n_fft=256, hop_length=
     # 4. Crest Factor (Peak / RMS)
     rms = np.sqrt(np.mean(sig**2)) + 1e-6
     crest_factor = np.max(np.abs(sig)) / rms
-    
-    scalars = np.array([bass_ratio, hp_ratio, centroid / 10000.0, crest_factor / 10.0, mic_ratio / 10.0], dtype=np.float32)
+
+    # Onset mic ratio (MelBin 4 + MelBin 9) / Frame 0 Energy
+    frame_0_energy = np.sum([mel_matrix[m, 0] for m in range(20)]) + 1e-6
+    mic_ratio = float((mel_matrix[4, 0] + mel_matrix[9, 0]) / frame_0_energy)
+
+    # 5. Spatial High-Frequency Decay (Frame 0-2 vs Frame 3-8 high-freq ratio)
+    hp_early = np.sum(mel_matrix[12:, :3]) + 1e-6
+    hp_late = np.sum(mel_matrix[12:, 3:9]) + 1e-6
+    spatial_hf_decay = float(hp_early / hp_late)
+
+    # 6. Onset Attack Slope (Energy rise rate between frame 0 and frame 1)
+    frame_0_e = np.sum(mel_matrix[:, 0]) + 1e-6
+    frame_1_e = np.sum(mel_matrix[:, 1]) + 1e-6
+    onset_attack_slope = float((frame_1_e - frame_0_e) / frame_0_e)
+
+    # 7. Spectral Tilt (High MelBins 12-19 vs Low MelBins 0-5 at Frame 0)
+    high_mels_0 = np.sum(mel_matrix[12:, 0])
+    low_mels_0 = np.sum(mel_matrix[:6, 0]) + 1e-6
+    spectral_tilt = float(high_mels_0 / low_mels_0)
+
+    # 8. Transient Decay Time (Frame index where energy drops below 50% of peak)
+    frame_energies = np.sum(mel_matrix, axis=0)
+    peak_e = np.max(frame_energies) + 1e-6
+    half_peak_mask = np.where(frame_energies < (0.5 * peak_e))[0]
+    decay_frame_idx = float(half_peak_mask[0] if len(half_peak_mask) > 0 else 15) / 15.0
+
+    # 9. High-Mel Skew (MelBin 15 vs MelBin 4 at Frame 0)
+    high_mel_skew = float(mel_matrix[15, 0] - mel_matrix[4, 0])
+
+    scalars = np.array([
+        bass_ratio, 
+        hp_ratio, 
+        centroid / 10000.0, 
+        crest_factor / 10.0, 
+        mic_ratio / 10.0,
+        spatial_hf_decay / 10.0,
+        onset_attack_slope,
+        spectral_tilt,
+        decay_frame_idx,
+        high_mel_skew
+    ], dtype=np.float32)
     
     return np.concatenate([flattened_mel, scalars])
 
@@ -224,7 +268,7 @@ def compute_vibration_trail_ratio(sig):
     window_rms = np.sqrt(np.mean(window_signal ** 2))
     return float(window_rms / peak_val)
 
-def count_impulse_peaks(sig, min_distance_ms=90.0, min_prominence_ratio=0.30):
+def count_impulse_peaks(sig, min_distance_ms=80.0, min_prominence_ratio=0.18):
     """
     Count the number of distinct physical impact peaks in a 350ms buffer.
     

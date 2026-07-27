@@ -110,17 +110,32 @@ class CustomChassisNoiseEngine:
         elif len(full_noise_profile) > len(magnitude):
             full_noise_profile = full_noise_profile[:len(magnitude)]
 
-        # Bandpass shaping: preserve 80Hz - 3800Hz
-        bandpass = (freqs >= 80.0) & (freqs <= 3800.0)
-        
-        # Over-subtraction: if speaker is active, attenuate high speaker bands more aggressively
-        over_sub = 1.6 if self.speaker_active else 1.25
-        subtracted_mag = np.maximum(magnitude - (over_sub * full_noise_profile), 0.08 * magnitude)
-        clean_mag = subtracted_mag * bandpass
+        # Frequency Masks
+        chassis_bass_mask = (freqs >= 80.0) & (freqs <= 280.0)        # Deep physical metal unibody impact (100% PROTECTED)
+        metal_crisp_ping_mask = (freqs >= 2500.0) & (freqs <= 4500.0) # Razor-sharp metal contact ping (PROTECTED during taps)
+        speaker_vocals_mask = (freqs >= 500.0) & (freqs <= 2200.0)    # Background vocal speech & music instrument mids
 
-        # 6. Speaker Audio Suppression (If speaker active & low kinetic impact index, suppress frame)
-        if self.speaker_active and impact_index < 0.7:
-            clean_mag *= 0.15  # Heavily suppress internal speaker audio bleed
+        # 6. Apply Subband Subtraction
+        over_sub = 1.3 if self.speaker_active else 1.12
+        subtracted_mag = np.maximum(magnitude - (over_sub * full_noise_profile), 0.15 * magnitude)
+
+        # 7. Targeted Dual-Protection Filtering Rules
+        clean_mag = subtracted_mag.copy()
+
+        # Rule A: Sub-280Hz Chassis Impact Band is 100% PROTECTED (Pass-through un-attenuated)
+        clean_mag[chassis_bass_mask] = magnitude[chassis_bass_mask]
+
+        # Rule B: Protect Crisp Metal Contact Ping (2.5kHz - 4.5kHz) during tap transient impacts
+        if is_impulse:
+            clean_mag[metal_crisp_ping_mask] = magnitude[metal_crisp_ping_mask]
+
+        # Rule C: If MacBook speakers are playing music/YouTube, attenuate vocal/instrument mids (500Hz - 2.2kHz)
+        if self.speaker_active:
+            clean_mag[speaker_vocals_mask] *= 0.20
+
+        # Rule D: External Speech Chatter Attenuation (500Hz - 2.2kHz) during non-impulse background frames
+        if not is_impulse:
+            clean_mag[speaker_vocals_mask] *= 0.30
 
         # 7. Inverse FFT Reconstruction
         clean_fft = clean_mag * np.exp(1j * phase)

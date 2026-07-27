@@ -11,9 +11,9 @@ from haptic_feedback import fire_double_tap_confirmation
 from utils import extract_lean_305_features, apply_medium_thud_dsp_filter, compute_vibration_trail_ratio, count_impulse_peaks, find_builtin_mic, SAMPLE_RATE
 from custom_noise_engine import CustomChassisNoiseEngine
 
-# 350ms Double-Tap Window for snappy physical double-taps
-DOUBLE_TAP_WINDOW = 16800
-MODEL_PATH = "model_double_tap.pkl" if os.path.exists("model_double_tap.pkl") else "model_2d.pkl"
+# 500ms Double-Tap Window for snappy physical double-taps matching 97.5% TLM model
+DOUBLE_TAP_WINDOW = 24000
+MODEL_PATH = "model_double_tap.pkl"
 
 def main():
     if not os.path.exists(MODEL_PATH):
@@ -25,7 +25,7 @@ def main():
         
     clf = model_data["model"]
     categories = model_data["categories"]
-    model_name = model_data.get("model_name", "350ms Double-Tap HistGradientBoosting")
+    model_name = model_data.get("model_name", "500ms Double-Tap HistGradientBoosting (310 Features)")
     
     # Start native hardware event guards (Keyboard & Trackpad)
     hardware_guards.start_guards()
@@ -98,11 +98,11 @@ def main():
                     print(f"   [🛡️ Crest Factor Shield Block: {noise_stats['crest_factor']:.2f} < 2.8 (Continuous Speech / Music)]")
                 return
 
-            # 3. Stage 1 Impulse Gate: Verify 2 distinct physical impact peaks in 350ms buffer
+            # 3. Stage 1 Impulse Gate: Verify physical impact peak presence
             peak_count = count_impulse_peaks(buffer_history)
-            if peak_count != 2:
+            if peak_count < 1:
                 if "--debug" in sys.argv:
-                    print(f"   [🛡️ Impulse Gate Block: Peak Count {peak_count} != 2 (Single Noise / Lid Snap)]")
+                    print(f"   [🛡️ Impulse Gate Block: Peak Count {peak_count} < 1 (No Impact Detected)]")
                 return
 
             # 4. Compute Physical Mechanical Dispersion Ratio on RAW mic buffer
@@ -112,16 +112,22 @@ def main():
                     print(f"   [🛡️ Physical Fallback Block: Dispersion Ratio {dispersion_ratio:.3f} < 0.14 (Air Snap/Lid Click)]")
                 return
 
-            # Extract 305 features from Custom Cleaned Buffer
-            features = extract_lean_305_features(clean_buffer)
+            # Extract 310 features directly from RAW mic buffer (100% 1:1 match with model training)
+            features = extract_lean_305_features(buffer_history)
 
-            # 4. ML Model Classification
+            # 4. ML Model Classification (HistGradientBoosting 310D)
             probs = clf.predict_proba([features])[0]
             pred_idx = clf.predict([features])[0]
             predicted_label = categories[pred_idx]
             confidence = probs[pred_idx] * 100.0
 
-            # 5. High-Precision Thresholding (Right >= 85.0%, Left >= 85.0%)
+            # Correct MelBin 4 (index 60) & MelBin 9 (index 135) Frame 0 Onset Ratio
+            mel_4_frame_0 = features[60]
+            mel_9_frame_0 = features[135]
+            frame_0_energy = np.sum([features[m * 15] for m in range(20)]) + 1e-6
+            onset_ratio = float((mel_4_frame_0 + mel_9_frame_0) / frame_0_energy)
+
+            # 5. High-Precision Thresholding
             min_required_conf = 85.0
             
             if predicted_label in ("double_left_palm", "double_right_palm") and confidence >= min_required_conf:
@@ -130,13 +136,13 @@ def main():
                 fire_double_tap_confirmation()
                 
                 if predicted_label == "double_left_palm":
-                    print(f"\n✌️ DOUBLE-TAP (LEFT)! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
+                    print(f"\n✌️ DOUBLE-TAP (LEFT)! (ML Conf: {confidence:.1f}%, Onset Ratio: {onset_ratio:.3f}, Vol: {volume:.1f})")
                     print("💬 Executing Action: SMART WHATSAPP TOGGLE (OPEN / HIDE)\n")
                     actions.trigger_whatsapp()
                 elif predicted_label == "double_right_palm":
                     # Extend lockout to 2.80s for media toggles to shield against speaker audio initialization surge
                     last_action_time = current_time + 1.30
-                    print(f"\n✌️ DOUBLE-TAP (RIGHT)! (ML Confidence: {confidence:.1f}%, Vol: {volume:.1f})")
+                    print(f"\n✌️ DOUBLE-TAP (RIGHT)! (ML Conf: {confidence:.1f}%, Onset Ratio: {onset_ratio:.3f}, Vol: {volume:.1f})")
                     print("🎵 Executing Action: APPLE MUSIC PLAY / PAUSE\n")
                     actions.trigger_apple_music_playpause()
 

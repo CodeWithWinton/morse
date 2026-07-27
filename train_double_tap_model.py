@@ -12,25 +12,53 @@ DATASET_DIR = "dataset_double_taps"
 CATEGORIES = ["double_left_palm", "double_right_palm", "noise_and_typing"]
 MODEL_PATH = "model_double_tap.pkl"
 
+H5_FILEPATH = "morse_dataset.h5"
+
 def load_double_tap_dataset():
     X, y = [], []
+    
+    # 1. Primary: Ultra-Fast HDF5 Loading (morse_dataset.h5)
+    if os.path.exists(H5_FILEPATH):
+        import h5py
+        print(f"📄 Loading primary dataset from '{H5_FILEPATH}'...")
+        with h5py.File(H5_FILEPATH, "r") as h5f:
+            for label_idx, cat in enumerate(CATEGORIES):
+                if cat in h5f:
+                    dset = h5f[cat]
+                    n_samples = dset.shape[0]
+                    print(f"  • HDF5: Loading {n_samples:4d} samples for '{cat.upper()}'...")
+                    
+                    for i in range(n_samples):
+                        signal = dset[i].astype(np.float32)
+                        feat = extract_lean_305_features(signal)
+                        X.append(feat)
+                        y.append(label_idx)
+                        
+                        # Data Augmentation (1.20x and 0.80x amplitude scaling)
+                        if cat in ("double_left_palm", "double_right_palm"):
+                            X.append(extract_lean_305_features(signal * 1.20))
+                            y.append(label_idx)
+                            X.append(extract_lean_305_features(signal * 0.80))
+                            y.append(label_idx)
+        return np.array(X), np.array(y)
+
+    # 2. Fallback: Standard .npy Folder Loading (dataset_double_taps)
+    print(f"📁 Loading fallback dataset from '{DATASET_DIR}/'...")
     for label_idx, cat in enumerate(CATEGORIES):
         cat_dir = os.path.join(DATASET_DIR, cat)
         if not os.path.exists(cat_dir):
             continue
         files = [f for f in os.listdir(cat_dir) if f.endswith(".npy")]
-        print(f"  Loading {len(files):4d} samples for '{cat.upper()}'...")
+        print(f"  • .npy: Loading {len(files):4d} samples for '{cat.upper()}'...")
         
         for f in files:
             filepath = os.path.join(cat_dir, f)
-            signal = np.load(filepath)
+            signal = np.load(filepath).astype(np.float32)
             
-            # Extract 305 features
             feat = extract_lean_305_features(signal)
             X.append(feat)
             y.append(label_idx)
             
-            # Data Augmentation (1.20x and 0.80x amplitude scaling)
             if cat in ("double_left_palm", "double_right_palm"):
                 X.append(extract_lean_305_features(signal * 1.20))
                 y.append(label_idx)
