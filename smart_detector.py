@@ -79,10 +79,12 @@ def main():
             if hardware_guards.is_engine_paused():
                 return
             if hardware_guards.is_typing_active(current_time):
-                print("   ⌨️  [MORSE GUARD] KEYBOARD BLOCKED (Active typing shield)")
+                if "--debug" in sys.argv:
+                    print("   ⌨️  [MORSE GUARD] KEYBOARD BLOCKED (Active typing shield)")
                 return
             if hardware_guards.is_trackpad_active(current_time):
-                print("   🖱️  [MORSE GUARD] TRACKPAD BLOCKED (Active trackpad shield)")
+                if "--debug" in sys.argv:
+                    print("   🖱️  [MORSE GUARD] TRACKPAD BLOCKED (Active trackpad shield)")
                 return
 
             # Check if MacBook speaker output is active (YouTube, Spotify, Music)
@@ -127,8 +129,8 @@ def main():
             frame_0_energy = np.sum([features[m * 15] for m in range(20)]) + 1e-6
             onset_ratio = float((mel_4_frame_0 + mel_9_frame_0) / frame_0_energy)
 
-            # 5. High-Precision Thresholding
-            min_required_conf = 85.0
+            # 5. High-Precision Thresholding (92.0% for Right taps to block false triggers, 85.0% for Left taps)
+            min_required_conf = 92.0 if predicted_label == "double_right_palm" else 85.0
             
             if predicted_label in ("double_left_palm", "double_right_palm") and confidence >= min_required_conf:
                 last_action_time = current_time
