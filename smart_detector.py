@@ -121,11 +121,6 @@ def main():
             predicted_label = categories[pred_idx]
             confidence = probs[pred_idx] * 100.0
 
-            # Left-Mic Spatial Proximity Check (Mic is on Left side: Ultra-High Bass >= 0.48 guarantees Left)
-            bass_ratio = features[300]
-            if bass_ratio >= 0.48 and predicted_label == "double_right_palm":
-                predicted_label = "double_left_palm"
-
             # 5. High-Precision Thresholding (Right >= 85.0%, Left >= 85.0%)
             min_required_conf = 85.0
             
