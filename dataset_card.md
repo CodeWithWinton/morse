@@ -14,7 +14,8 @@ source_datasets:
 task_categories:
 - audio-classification
 task_ids:
-- acoustic-impulse-detection
+- audio-intent-classification
+- keyword-spotting
 pretty_name: MacBook Unibody Acoustic Kinetic Tap Dataset (TLM 1.0)
 dataset_info:
   features:
