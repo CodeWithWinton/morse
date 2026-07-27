@@ -14,32 +14,43 @@ MODEL_PATH = "model_double_tap.pkl"
 
 H5_FILEPATH = "morse_dataset.h5"
 
+def _process_sample(args):
+    signal, label_idx, is_tap = args
+    out = [(extract_lean_305_features(signal), label_idx)]
+    if is_tap:
+        out.append((extract_lean_305_features(signal * 1.20), label_idx))
+        out.append((extract_lean_305_features(signal * 0.80), label_idx))
+    return out
+
 def load_double_tap_dataset():
+    import multiprocessing
     X, y = [], []
     
     # 1. Primary: Ultra-Fast HDF5 Loading (morse_dataset.h5)
     if os.path.exists(H5_FILEPATH):
         import h5py
         print(f"📄 Loading primary dataset from '{H5_FILEPATH}'...")
+        tasks = []
         with h5py.File(H5_FILEPATH, "r") as h5f:
             for label_idx, cat in enumerate(CATEGORIES):
                 if cat in h5f:
-                    dset = h5f[cat]
-                    n_samples = dset.shape[0]
-                    print(f"  • HDF5: Loading {n_samples:4d} samples for '{cat.upper()}'...")
-                    
-                    for i in range(n_samples):
-                        signal = dset[i].astype(np.float32)
-                        feat = extract_lean_305_features(signal)
-                        X.append(feat)
-                        y.append(label_idx)
+                    samples = h5f[cat][:]
+                    is_tap = cat in ("double_left_palm", "double_right_palm")
+                    print(f"  • HDF5: Preparing {len(samples):4d} samples for '{cat.upper()}'...")
+                    for s in samples:
+                        tasks.append((s.astype(np.float32), label_idx, is_tap))
                         
-                        # Data Augmentation (1.20x and 0.80x amplitude scaling)
-                        if cat in ("double_left_palm", "double_right_palm"):
-                            X.append(extract_lean_305_features(signal * 1.20))
-                            y.append(label_idx)
-                            X.append(extract_lean_305_features(signal * 0.80))
-                            y.append(label_idx)
+        print(f"⚡ Extracting 310D features in parallel across {multiprocessing.cpu_count()} CPU cores...")
+        t0 = time.time()
+        with multiprocessing.Pool() as pool:
+            batch_results = pool.map(_process_sample, tasks)
+            
+        for res_list in batch_results:
+            for feat, label in res_list:
+                X.append(feat)
+                y.append(label)
+                
+        print(f"✅ Extracted {len(X)} augmented feature vectors in {time.time() - t0:.2f}s!")
         return np.array(X), np.array(y)
 
     # 2. Fallback: Standard .npy Folder Loading (dataset_double_taps)

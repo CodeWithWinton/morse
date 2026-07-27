@@ -38,9 +38,9 @@ def main():
     print(f"🎙️ Target Hardware: [{builtin_device_id}] {dev_name}")
 
     print("==========================================================================")
-    print("   MORSE - Powered by TLM 1.0 (Tap Learning Model Engine)")
+    print("   MORSE - Powered by TLM 1.5 (Tap Learning Model Engine)")
     print("==========================================================================")
-    print("🤖 Stage 1 DSP Window + Stage 2 TLM 1.0 Tap Classifier (350ms Window) Active")
+    print("🤖 Stage 1 DSP Window + Stage 2 TLM 1.5 Tap Classifier (500ms Native Window) Active")
     print("🎧 Custom In-House Noise & Speaker Shield Active (<0.9% CPU, Zero Tap Loss)")
     print("🛡️ Multi-Sensor Guards: Keyboard, Trackpad & Control Key Toggle Active")
     print("📳 Haptic Feedback: Trackpad confirmation clicks enabled")
