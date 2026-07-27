@@ -18,8 +18,8 @@ def _process_sample(args):
     signal, label_idx, is_tap = args
     out = [(extract_lean_305_features(signal), label_idx)]
     if is_tap:
-        out.append((extract_lean_305_features(signal * 1.20), label_idx))
-        out.append((extract_lean_305_features(signal * 0.80), label_idx))
+        out.append((extract_lean_305_features(signal * 1.10), label_idx))
+        out.append((extract_lean_305_features(signal * 0.90), label_idx))
     return out
 
 def load_double_tap_dataset():
@@ -71,9 +71,9 @@ def load_double_tap_dataset():
             y.append(label_idx)
             
             if cat in ("double_left_palm", "double_right_palm"):
-                X.append(extract_lean_305_features(signal * 1.20))
+                X.append(extract_lean_305_features(signal * 1.10))
                 y.append(label_idx)
-                X.append(extract_lean_305_features(signal * 0.80))
+                X.append(extract_lean_305_features(signal * 0.90))
                 y.append(label_idx)
                 
     return np.array(X), np.array(y)

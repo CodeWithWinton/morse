@@ -20,17 +20,15 @@ def collect_category(category_name, target_count, prompt_msg):
     device_id, dev_name = find_builtin_mic()
     buffer_history = np.zeros(DOUBLE_TAP_WINDOW, dtype=np.float32)
     last_trigger_time = 0.0
-
-    # Physical Tap Volume & Transient Guards:
-    # Ambient room noise (Vol 4-5, Crest <2.0) is blocked.
-    # Soft taps (Vol 8-11, Crest >3.0) and Hard taps are captured cleanly.
-    min_volume_threshold = 3.0 if category_name == "noise_and_typing" else 7.5
     
     print("\n==========================================================================")
     print(f" 👉 RECORDING CATEGORY: {category_name.upper()}")
     print("==========================================================================")
     print(f"   Prompt: {prompt_msg}")
-    print(f"   Required Trigger Volume: > {min_volume_threshold}")
+    if category_name == "noise_and_typing":
+        print("   Trigger Mode: Ambient / Typing Auto-Stream (Vol >= 3.0)")
+    else:
+        print("   Trigger Mode: Physical Kinetic Impact Spike (Peak >= 0.05 & Vol >= 15.0)")
     print(f"   Target for this session: {target_count} samples")
     print(f"   Existing samples in folder: {initial_count}")
     print("   Press Ctrl+C anytime to stop and return to main menu.\n")
@@ -39,23 +37,23 @@ def collect_category(category_name, target_count, prompt_msg):
         nonlocal collected_this_session, last_trigger_time, buffer_history
         sig = indata.flatten()
         volume = np.linalg.norm(sig) * 10
+        peak_amp = np.max(np.abs(sig))
         current_time = time.time()
         
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
         
-        # Crest factor check to reject continuous ambient background noise
-        rms = np.sqrt(np.mean(buffer_history ** 2)) + 1e-6
-        crest_factor = np.max(np.abs(buffer_history)) / rms
-        
+        # Trigger Condition:
+        # Taps require physical kinetic impact spike (Peak >= 0.05 & Vol >= 15.0)
+        # Background speech/sighing/room noise (Peak ~0.01, Vol ~5-8) is 100% IGNORED.
         valid_trigger = False
         if category_name == "noise_and_typing":
-            valid_trigger = (volume >= min_volume_threshold)
+            valid_trigger = (volume >= 3.0)
         else:
-            valid_trigger = (volume >= min_volume_threshold) and (crest_factor >= 2.5)
+            valid_trigger = (peak_amp >= 0.05) and (volume >= 15.0)
 
-        # Lockout window of 0.50s to capture full 500ms tap window
-        if valid_trigger and (current_time - last_trigger_time) > 0.50:
+        # 0.50s lockout window to capture full 500ms tap window
+        if valid_trigger and (current_time - last_trigger_time > 0.50):
             last_trigger_time = current_time
             collected_this_session += 1
             filename = f"{category_name}_{int(current_time * 1000)}.npy"
@@ -73,7 +71,7 @@ def collect_category(category_name, target_count, prompt_msg):
 
             # Print live counter feedback on EVERY SINGLE TAP!
             total_now = initial_count + collected_this_session
-            print(f"   ⚡ [{collected_this_session}/{target_count}] Total: {total_now} | Saved sample (Vol: {volume:.1f})")
+            print(f"   ⚡ [{collected_this_session}/{target_count}] Total: {total_now} | Saved sample (Peak: {peak_amp:.3f}, Vol: {volume:.1f})")
 
     try:
         with sd.InputStream(device=device_id, channels=1, samplerate=SAMPLE_RATE, callback=callback):
