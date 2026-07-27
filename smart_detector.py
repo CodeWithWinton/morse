@@ -129,8 +129,8 @@ def main():
             frame_0_energy = np.sum([features[m * 15] for m in range(20)]) + 1e-6
             onset_ratio = float((mel_4_frame_0 + mel_9_frame_0) / frame_0_energy)
 
-            # 5. High-Precision Thresholding (92.0% for Right taps to block false triggers, 85.0% for Left taps)
-            min_required_conf = 92.0 if predicted_label == "double_right_palm" else 85.0
+            # 5. High-Precision Thresholding (94.0% for both Left and Right taps)
+            min_required_conf = 94.0
             
             if predicted_label in ("double_left_palm", "double_right_palm") and confidence >= min_required_conf:
                 last_action_time = current_time
