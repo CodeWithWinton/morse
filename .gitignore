@@ -222,3 +222,6 @@ __marimo__/
 dataset/
 model.pkl
 *.wav
+*.zip
+empirical_*.wav
+

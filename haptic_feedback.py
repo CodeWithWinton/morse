@@ -13,7 +13,7 @@ except Exception as e:
 
 def fire_haptic(pattern=0):
     """
-    Fires a native Force Touch Trackpad haptic click.
+    Fires native Force Touch Trackpad haptic click (and optional click feedback).
     pattern 0: Generic Click
     pattern 1: Alignment Snapping Click
     pattern 2: Level Change Click
@@ -24,6 +24,13 @@ def fire_haptic(pattern=0):
             return True
         except Exception:
             pass
+            
+    # System Audio Click Indicator (Fired AFTER detection as user feedback)
+    try:
+        os.system("afplay /System/Library/Sounds/Pop.aiff &")
+    except Exception:
+        pass
+        
     return False
 
 def fire_double_tap_confirmation():

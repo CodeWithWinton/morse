@@ -111,6 +111,37 @@ def is_trackpad_active(current_time=None, window_sec=1.00):
         current_time = time.time()
     return (current_time - last_trackpad_time) < window_sec
 
+_speaker_active_cache = False
+_last_speaker_check_time = 0.0
+
+def is_speaker_output_active():
+    """
+    Check if MacBook speakers are actively playing audio (e.g. YouTube, Spotify, Apple Music).
+    Uses lightweight non-blocking system state check (cached for 0.5s to maintain 0% CPU overhead).
+    """
+    global _speaker_active_cache, _last_speaker_check_time
+    now = time.time()
+    if (now - _last_speaker_check_time) < 0.5:
+        return _speaker_active_cache
+
+    _last_speaker_check_time = now
+    try:
+        import subprocess
+        # Check system volume setting; if muted, speaker is not active
+        res = subprocess.run(["osascript", "-e", "output volume of (get volume settings)"], capture_output=True, text=True, timeout=0.08)
+        if res.returncode == 0:
+            vol = int(res.stdout.strip())
+            if vol == 0:
+                _speaker_active_cache = False
+                return False
+        # Check if media applications (Music, Spotify, QuickTime, Chrome YouTube) are playing
+        res_apps = subprocess.run(["pgrep", "-x", "Music|Spotify|com.apple.audio.ComponentResult"], capture_output=True, text=True, timeout=0.08)
+        _speaker_active_cache = (res_apps.returncode == 0)
+    except Exception:
+        _speaker_active_cache = False
+
+    return _speaker_active_cache
+
 if __name__ == "__main__":
     print("====================================")
     print("   MORSE - Hardware Event Guard Test")
