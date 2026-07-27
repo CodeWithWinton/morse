@@ -2,14 +2,28 @@ import os
 import sys
 import time
 import ctypes
+import subprocess
 
 DYLIB_PATH = os.path.join(os.path.dirname(__file__), "haptic_bridge.dylib")
-try:
-    libhaptic = ctypes.CDLL(DYLIB_PATH)
-    libhaptic.fire_haptic_native.argtypes = [ctypes.c_long]
-    libhaptic.fire_haptic_native.restype = None
-except Exception as e:
-    libhaptic = None
+C_SRC_PATH = os.path.join(os.path.dirname(__file__), "haptic_bridge.c")
+
+# If .dylib is missing on another Mac (like MacBook Neo), auto-compile it from source!
+if not os.path.exists(DYLIB_PATH) and os.path.exists(C_SRC_PATH):
+    try:
+        print("🔨 Compiling haptic_bridge.dylib for local Mac architecture...")
+        cmd = f"gcc -dynamiclib -o '{DYLIB_PATH}' '{C_SRC_PATH}' -framework CoreGraphics"
+        subprocess.run(cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except Exception:
+        pass
+
+libhaptic = None
+if os.path.exists(DYLIB_PATH):
+    try:
+        libhaptic = ctypes.CDLL(DYLIB_PATH)
+        libhaptic.fire_haptic_native.argtypes = [ctypes.c_long]
+        libhaptic.fire_haptic_native.restype = None
+    except Exception:
+        libhaptic = None
 
 def fire_haptic(pattern=0):
     """
@@ -25,7 +39,7 @@ def fire_haptic(pattern=0):
         except Exception:
             pass
             
-    # System Audio Click Indicator (Fired AFTER detection as user feedback)
+    # System Audio Click Indicator (Fallback for non-haptic trackpads like MacBook Neo)
     try:
         os.system("afplay /System/Library/Sounds/Pop.aiff &")
     except Exception:
