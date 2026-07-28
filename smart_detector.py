@@ -43,7 +43,7 @@ def main():
     print("🤖 Stage 1 DSP Window + Stage 2 TLM 1.5 Tap Classifier (500ms Native Window) Active")
     print("🎧 Custom In-House Noise & Speaker Shield Active (<0.9% CPU, Zero Tap Loss)")
     print("🛡️ Multi-Sensor Guards: Keyboard, Trackpad & Control Key Toggle Active")
-    print("📳 Haptic Feedback: Trackpad confirmation clicks enabled")
+    print("🔊 Audio Feedback: macOS bubble sound (Bottle.aiff) confirmation enabled")
     print("💬 Actions: Left Double-Tap = Toggle WhatsApp | Right Double-Tap = Play/Pause Music")
     print("🎙️  Listening to chassis... (Double-tap left or right metal palm rest!)")
     print("Press Ctrl+C to stop.\n")
