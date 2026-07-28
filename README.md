@@ -23,14 +23,10 @@
 
 **MORSE** is a zero-hardware acoustic gesture recognition platform powered by **TLM 1.5 (Tap Learning Model)**. It converts standard unibody aluminum laptops into software-defined touch surfaces.
 
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      TLM (Tap Learning Model) 1.5                       │
-├──────────────────────────────┬──────────────────────────────────────────┤
-│ 🔤 LLM (Language Model)       │ 🎙️ TLM (Tap Learning Model)             │
-│ Words ──► Tokens ──► Intent  │ Kinetic Impulses ──► TLM 1.5 ──► Action │
-└──────────────────────────────┴──────────────────────────────────────────┘
-```
+| Model Type | Input Signal | Core Processing Engine | Execution Output |
+|---|---|---|---|
+| 🔤 **LLM (Language Model)** | Text / Speech Tokens | Deep Transformer Weights | Text Generation & Reasoning |
+| 🎙️ **TLM (Tap Learning Model)** | Kinetic Impulse Waves | 3,730D Spatial Matrix | **0.3ms OS Action & Haptics** |
 
 By exploiting the physical laws of **solid-state acoustic wave dispersion** ($2.5\text{kHz} - 4.5\text{kHz}$ high-frequency attenuation across aluminum plates), MORSE differentiates left vs. right palm rest double-taps using a **single $0 built-in mono microphone** with **99.8% live precision** and **0.3ms execution latency**.
 
@@ -49,33 +45,13 @@ By exploiting the physical laws of **solid-state acoustic wave dispersion** ($2.
 
 ## 🏗️ Architecture & Hardware Shielding
 
-```text
-                        [ Physical Unibody Kinetic Impulse ]
-                                         │
-                                         ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ 1. HARDWARE SENSOR FUSION LAYER (0% CPU)                                │
-│    • Keyboard Guard (Quartz CGEventTap)   ──► Mutes during typing         │
-│    • Trackpad Guard (Quartz CGEventTap)   ──► Mutes during trackpad drag    │
-│    • System Kill-Switch (Fn Key)          ──► Mutes/resumes engine state    │
-└─────────────────────────────────────┬───────────────────────────────────┘
-                                      │ (Pass)
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ 2. TLM 1.5 ENGINE (model_double_tap.pkl | <0.3% CPU)                    │
-│    • 24,000 Sample 500ms Native Buffer   ──► Captures full tap + decay    │
-│    • Position-Invariant Peak Alignment   ──► Centers peak at sample 4,800  │
-│    • 3,730D Spatial Feature Matrix       ──► 20 Mels x 186 Frames + 10 Scalars│
-│    • 98.4% 5-Fold Stratified CV          ──► 100% Left Recall / 99% Right    │
-└─────────────────────────────────────┬───────────────────────────────────┘
-                                      │ (Validated)
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ 3. NATIVE ACTION ENGINE & HAPTICS (smart_detector.py)                   │
-│    • Smart WhatsApp Toggle (Cmd+H / Focus)                              │
-│    • Apple Music / Spotify Media Controls                               │
-│    • C-Bridge Trackpad Haptic Confirmation Click                        │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["🖐️ Physical Unibody Kinetic Impulse"] --> B["1. HARDWARE SENSOR FUSION LAYER (0% CPU)<br>• Keyboard Guard (Quartz EventTap)<br>• Trackpad Guard (Quartz EventTap)<br>• Fn Key System Kill-Switch"]
+    B -- Validated Pass --> C["2. TLM 1.5 ENGINE (0.3ms | <0.3% CPU)<br>• 24,000 Sample 500ms Native Buffer<br>• Sample 4,800 Peak Alignment<br>• 3,730D Spatial Feature Matrix<br>• 98.4% 5-Fold Stratified CV"]
+    C --> D{"Gesture Verdict"}
+    D -- Left Double-Tap --> E["👈 Smart App Toggle<br>(Cmd+H / Focus)"]
+    D -- Right Double-Tap --> F["👉 Media Play / Pause<br>& Trackpad Haptic Click"]
 ```
 
 ---
