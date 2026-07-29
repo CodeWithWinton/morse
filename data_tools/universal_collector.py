@@ -66,7 +66,7 @@ def auto_calibrate_noise_floor(device_id, duration_sec=1.0):
     return target_vol, target_peak
 
 
-def record_category(category_name, output_dir=DEFAULT_DATASET_DIR, target_count=500):
+def record_category(category_name, output_dir=DEFAULT_DATASET_DIR, target_count=100):
     """Interactive loop to collect tap or noise samples for a given category."""
     cat_dir = os.path.join(output_dir, category_name)
     os.makedirs(cat_dir, exist_ok=True)
@@ -74,6 +74,7 @@ def record_category(category_name, output_dir=DEFAULT_DATASET_DIR, target_count=
     existing_files = [f for f in os.listdir(cat_dir) if f.endswith(".npy")]
     sample_count = len(existing_files)
     session_files = []
+    stop_recording = False
 
     os_name = platform.system()
     dev_id, dev_name = get_default_input_device()
@@ -83,7 +84,7 @@ def record_category(category_name, output_dir=DEFAULT_DATASET_DIR, target_count=
     print("==========================================================================")
     print(f" 💻 Hardware: [{dev_id}] {dev_name}")
     print(f" 📂 Destination: {os.path.abspath(cat_dir)}")
-    print(f" 📊 Existing Samples: {sample_count} / Target: {target_count}")
+    print(f" 📊 Existing: {sample_count} samples | Goal: +{target_count} new samples in this session")
 
     if category_name == "double_left_palm":
         print(" 👉 Action: Perform DOUBLE-TAPS on the LEFT metal palm rest.")
@@ -92,7 +93,7 @@ def record_category(category_name, output_dir=DEFAULT_DATASET_DIR, target_count=
     else:
         print(" 👉 Action: Perform TYPING, DESK BUMPS, WRIST SLIDES, or AMBIENT NOISE.")
 
-    print(" ⏹️ Press Ctrl+C to stop collecting and choose whether to keep session samples.\n")
+    print(" ⏹️ Press Ctrl+C to stop early and choose whether to keep session samples.\n")
 
     if category_name == "noise_and_typing":
         vol_floor = 4.0
@@ -104,7 +105,10 @@ def record_category(category_name, output_dir=DEFAULT_DATASET_DIR, target_count=
     last_trigger_time = 0.0
 
     def stream_callback(indata, frames, time_info, status):
-        nonlocal sample_count, last_trigger_time, buffer_history, session_files
+        nonlocal sample_count, last_trigger_time, buffer_history, session_files, stop_recording
+
+        if stop_recording:
+            return
 
         # Downmix multi-channel stereo to 1D mono safely across all hardware
         if indata.ndim > 1 and indata.shape[1] > 1:
@@ -124,7 +128,6 @@ def record_category(category_name, output_dir=DEFAULT_DATASET_DIR, target_count=
         rms = np.sqrt(np.mean(buffer_history**2)) + 1e-6
         crest_factor = np.max(np.abs(buffer_history)) / rms
 
-        # Tap categories require a physical impulse peak (crest_factor >= 2.5) to avoid false self-triggering!
         is_tap_cat = category_name in ("double_left_palm", "double_right_palm")
         valid_impulse = (crest_factor >= 2.5) if is_tap_cat else True
 
@@ -136,32 +139,40 @@ def record_category(category_name, output_dir=DEFAULT_DATASET_DIR, target_count=
             np.save(filename, buffer_history.copy())
             session_files.append(filename)
 
-            # Print each capture on its OWN SEPARATE LINE
-            print(f"  ✅ [{sample_count:05d}/{target_count}] Captured -> {os.path.basename(filename)} (Vol: {volume:.1f}, Peak: {peak:.3f}, Crest: {crest_factor:.1f})")
+            session_captured = len(session_files)
+            print(f"  ✅ [{session_captured:03d}/{target_count}] Captured -> {os.path.basename(filename)} (Vol: {volume:.1f}, Peak: {peak:.3f}, Crest: {crest_factor:.1f})")
+
+            # Check target session count cutoff!
+            if session_captured >= target_count:
+                print(f"\n🎉 Target goal of +{target_count} new samples reached!")
+                stop_recording = True
 
     try:
         with sd.InputStream(device=dev_id, samplerate=SAMPLE_RATE, callback=stream_callback):
-            while True:
+            while not stop_recording:
                 time.sleep(0.1)
     except KeyboardInterrupt:
-        print(f"\n\n⏹️ Session stopped for '{category_name}'. Captured {len(session_files)} new samples this session.")
-        if session_files:
-            ans = input("❓ Keep these new session samples? (Y/n): ").strip().lower()
-            if ans == "n":
-                for fpath in session_files:
-                    if os.path.exists(fpath):
-                        try:
-                            os.remove(fpath)
-                        except Exception:
-                            pass
-                print(f"🗑️ Discarded {len(session_files)} session samples!")
-            else:
-                print(f"💾 Kept {len(session_files)} new session samples!")
-        print()
+        print(f"\n\n⏹️ Session stopped manually via Ctrl+C.")
+
+    print(f"📊 Session Summary: Captured {len(session_files)} new samples.")
+    if session_files:
+        ans = input("❓ Keep these new session samples? (Y/n): ").strip().lower()
+        if ans == "n":
+            for fpath in session_files:
+                if os.path.exists(fpath):
+                    try:
+                        os.remove(fpath)
+                    except Exception:
+                        pass
+            print(f"🗑️ Discarded {len(session_files)} session samples!")
+        else:
+            print(f"💾 Kept {len(session_files)} new session samples!")
+    print()
 
 
 def run_interactive_collector(output_dir=DEFAULT_DATASET_DIR):
-    """Main CLI menu for universal data collection."""
+    """Main CLI menu for universal data collection & syncing."""
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     while True:
         print("\n==========================================================")
         print("   MORSE TLM 1.5 — Universal Data Collection Suite        ")
@@ -174,23 +185,32 @@ def run_interactive_collector(output_dir=DEFAULT_DATASET_DIR):
             cat_dir = os.path.join(output_dir, cat)
             count = len([f for f in os.listdir(cat_dir) if f.endswith(".npy")]) if os.path.exists(cat_dir) else 0
             print(f" {idx}. {cat:<24} [{count} samples]")
-        print(" 4. Exit")
+        print(" 4. Audit & Sync Data to Hugging Face")
+        print(" 5. Exit")
         print("----------------------------------------------------------")
 
-        choice = input("Enter choice (1-4): ").strip()
+        choice = input("Enter choice (1-5): ").strip()
         if choice in ["1", "2", "3"]:
             target_cat = CATEGORIES[int(choice) - 1]
             try:
-                cnt_str = input(f"Target sample count for {target_cat} (default 500): ").strip()
-                t_count = int(cnt_str) if cnt_str.isdigit() else 500
+                cnt_str = input(f"Target NEW sample count for {target_cat} (default 100): ").strip()
+                t_count = int(cnt_str) if cnt_str.isdigit() else 100
             except ValueError:
-                t_count = 500
+                t_count = 100
             record_category(target_cat, output_dir=output_dir, target_count=t_count)
+
         elif choice == "4":
+            try:
+                from data_tools.hf_dataset_sync import push_contributions
+                push_contributions(local_folder=output_dir)
+            except Exception as e:
+                print(f"❌ Sync Error: {e}")
+
+        elif choice == "5":
             print("\n👋 Exiting Universal Data Collector. Happy engineering!\n")
             break
         else:
-            print("❌ Invalid selection. Please enter 1, 2, 3, or 4.")
+            print("❌ Invalid selection. Please enter 1, 2, 3, 4, or 5.")
 
 
 if __name__ == "__main__":
