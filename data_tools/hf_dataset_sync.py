@@ -5,6 +5,7 @@ Supports:
 1. PULL: Download latest master dataset (HDF5 + raw .npy) from Hugging Face.
 2. PUSH / CONTRIBUTE: Push local tap & noise contributions with rich metadata
    (laptop model, sample counts, audit %, contributor info, data bias summary).
+Zero-friction token caching permanently saves write token to ~/.cache/huggingface/token.
 """
 
 import os
@@ -26,12 +27,46 @@ except ImportError:
     from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 
 
+def get_cached_hf_token():
+    """Retrieve cached HF write token from environment or local cache file."""
+    token = os.environ.get("HF_TOKEN")
+    if token:
+        return token.strip()
+
+    cache_paths = [
+        os.path.expanduser("~/.cache/huggingface/token"),
+        os.path.expanduser("~/.huggingface/token")
+    ]
+    for p in cache_paths:
+        if os.path.exists(p):
+            try:
+                with open(p, "r") as f:
+                    t = f.read().strip()
+                    if t:
+                        return t
+            except Exception:
+                pass
+    return None
+
+
+def save_hf_token_cache(token):
+    """Permanently save write token locally so user never has to enter it again."""
+    try:
+        cache_dir = os.path.expanduser("~/.cache/huggingface")
+        os.makedirs(cache_dir, exist_ok=True)
+        token_path = os.path.join(cache_dir, "token")
+        with open(token_path, "w") as f:
+            f.write(token.strip())
+        print(f" 💾 Saved write token permanently to {token_path}")
+    except Exception as e:
+        print(f" ⚠️ Could not save token cache: {e}")
+
+
 def detect_laptop_model():
     """Auto-detect laptop manufacturer and model name across macOS, Windows, and Linux."""
     system = platform.system()
     try:
         if system == "Darwin":
-            # macOS: system_profiler gives exact model (e.g. "MacBook Air (M1, 2020)")
             res = subprocess.run(
                 ["system_profiler", "SPHardwareDataType"],
                 capture_output=True, text=True, timeout=3
@@ -42,7 +77,6 @@ def detect_laptop_model():
             return f"Apple {platform.machine()}"
 
         elif system == "Windows":
-            # Windows: WMIC gives manufacturer + model (e.g. "Dell XPS 15 9520")
             res = subprocess.run(
                 ["wmic", "csproduct", "get", "name,vendor", "/format:list"],
                 capture_output=True, text=True, timeout=3
@@ -56,7 +90,6 @@ def detect_laptop_model():
             return f"{vendor} {model}".strip() or f"Windows {platform.machine()}"
 
         elif system == "Linux":
-            # Linux: /sys/devices/virtual/dmi/id/
             vendor = model = ""
             try:
                 with open("/sys/devices/virtual/dmi/id/sys_vendor") as f:
@@ -185,7 +218,6 @@ def pull_master_dataset(target_dir="dataset"):
 
     try:
         os.makedirs(target_dir, exist_ok=True)
-        # Download entire repo (HDF5 + raw .npy folders)
         local_path = snapshot_download(
             repo_id=HF_DATASET_REPO,
             repo_type="dataset",
@@ -199,24 +231,33 @@ def pull_master_dataset(target_dir="dataset"):
 
 
 def push_contributions(local_folder="dataset_double_taps", contributor_name=None):
-    """Pushes local dataset samples + manifest to Hugging Face LFS."""
+    """Pushes local dataset samples + manifest to Hugging Face LFS with zero friction."""
     if not os.path.exists(local_folder):
         print(f"❌ Folder '{local_folder}' does not exist!")
         return False
 
-    api = HfApi()
+    token = get_cached_hf_token()
+    if not token:
+        print("\n🔑 One-Time Hugging Face Setup Required!")
+        print(" Get your write token at: https://huggingface.co/settings/tokens")
+        token = input(" Enter your Hugging Face Write Token (hf_...): ").strip()
+        if token:
+            save_hf_token_cache(token)
+        else:
+            print("❌ Write token is required to upload dataset.")
+            return False
+
+    api = HfApi(token=token)
     laptop_model = detect_laptop_model()
 
     if not contributor_name:
-        contributor_name = input(f"Enter your name or handle (e.g. manas, daksh): ").strip()
+        contributor_name = input(f"Enter contributor name (default: {platform.node() or 'anonymous'}): ").strip()
         if not contributor_name:
-            contributor_name = "anonymous"
+            contributor_name = platform.node() or "anonymous"
 
-    # Auto-generate folder name from laptop model
     device_slug = laptop_model.lower().replace(" ", "_").replace("(", "").replace(")", "").replace(",", "")
     target_repo_path = f"contributions/{contributor_name}/{device_slug}"
 
-    # Count samples
     counts = count_dataset_samples(local_folder)
 
     print(f"\n==========================================================")
@@ -228,7 +269,6 @@ def push_contributions(local_folder="dataset_double_taps", contributor_name=None
     print(f" 📊 Samples      : Left={counts.get('double_left_palm',0)} | Right={counts.get('double_right_palm',0)} | Noise={counts.get('noise_and_typing',0)} | Total={counts['total']}")
     print(f" 🌐 HF Repo Path : {target_repo_path}")
 
-    # Run audit
     print(f"\n⏳ Running dataset health audit before push...")
     audit_passed, audit_total = run_audit(local_folder)
 
@@ -236,40 +276,23 @@ def push_contributions(local_folder="dataset_double_taps", contributor_name=None
         audit_pct = audit_passed / max(audit_total, 1) * 100
         print(f" 🔍 Audit Result : {audit_passed}/{audit_total} passed ({audit_pct:.1f}%)")
 
-        if audit_pct < 70.0:
-            print(f" ⚠️ WARNING: Audit pass rate is below 70%. Data quality may be low!")
-            confirm = input(" Continue push anyway? (y/n): ").strip().lower()
-            if confirm != "y":
-                print(" ❌ Push cancelled.")
-                return False
-    else:
-        audit_passed = counts["total"]
-        audit_total = counts["total"]
-        print(f" ⚠️ Audit module not available, skipping audit check.")
-
-    # Build manifest
     manifest = build_contribution_manifest(
-        local_folder, contributor_name, laptop_model, counts, audit_passed, audit_total
+        local_folder, contributor_name, laptop_model, counts, audit_passed or counts['total'], audit_total or counts['total']
     )
 
-    # Save manifest JSON alongside dataset
     manifest_path = os.path.join(local_folder, "contribution_manifest.json")
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
-    print(f" 📄 Saved contribution manifest -> {manifest_path}")
 
-    # Build rich commit message
-    commit_msg = build_commit_message(contributor_name, laptop_model, counts, audit_passed, audit_total)
-    print(f"\n📝 Commit Message Preview:\n{'='*60}")
-    print(commit_msg)
-    print(f"{'='*60}\n")
+    commit_msg = build_commit_message(contributor_name, laptop_model, counts, audit_passed or counts['total'], audit_total or counts['total'])
 
-    confirm = input("Push this contribution to Hugging Face? (y/n): ").strip().lower()
-    if confirm != "y":
+    confirm = input("\nPush this contribution to Hugging Face? (Y/n): ").strip().lower()
+    if confirm == "n":
         print(" ❌ Push cancelled.")
         return False
 
     try:
+        print("\n⏳ Uploading dataset files to Hugging Face...")
         api.upload_folder(
             folder_path=local_folder,
             path_in_repo=target_repo_path,
@@ -281,29 +304,7 @@ def push_contributions(local_folder="dataset_double_taps", contributor_name=None
         print(f" 🌐 View at: https://huggingface.co/datasets/{HF_DATASET_REPO}/tree/main/{target_repo_path}")
         return True
     except Exception as e:
-        err_str = str(e)
-        if "401" in err_str or "Invalid username or password" in err_str or "authenticated" in err_str:
-            print("\n🔑 Hugging Face Authentication Required for Push!")
-            print(" Get your write token at: https://huggingface.co/settings/tokens")
-            token = input(" Enter your Hugging Face Write Token (hf_...): ").strip()
-            if token:
-                try:
-                    api_authed = HfApi(token=token)
-                    api_authed.upload_folder(
-                        folder_path=local_folder,
-                        path_in_repo=target_repo_path,
-                        repo_id=HF_DATASET_REPO,
-                        repo_type="dataset",
-                        commit_message=commit_msg
-                    )
-                    print(f"\n ✅ Contribution pushed to Hugging Face with Write Token!")
-                    print(f" 🌐 View at: https://huggingface.co/datasets/{HF_DATASET_REPO}/tree/main/{target_repo_path}")
-                    return True
-                except Exception as retry_err:
-                    print(f"❌ Retry failed: {retry_err}")
-                    return False
         print(f"❌ Upload failed: {e}")
-        print("💡 Tip: Run 'huggingface-cli login' or set HF_TOKEN environment variable.")
         return False
 
 

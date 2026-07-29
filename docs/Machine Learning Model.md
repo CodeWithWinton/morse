@@ -11,33 +11,24 @@ Instead of 1D audio spectra, MORSE extracts a **2D Short-Time Fourier Transform 
 
 ---
 
-## 📊 Master Benchmark (10,214 Spatial Samples)
-Evaluated on unseen held-out test splits in `train_2d_spectrogram_model.py`:
+## 📊 Master Benchmark (13,127 HDF5 Ground-Truth Samples)
 
-| Category | Samples | Precision | Recall | F1-Score | Key Performance Feature |
+Evaluated on `morse_dataset.h5` in `train_double_tap_model.py`:
+
+| Category | Raw Samples | Precision | Recall | F1-Score | Performance Feature |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| **`left_palm_rest`** | 3,370 | **86%** | **93%** | **0.90** | 93% High-SNR Left Tap Recall |
-| **`right_palm_rest`** | 3,657 | **95%** | **100%** 🏆 | **0.97** | 100% Perfect Right Tap Recall (3x Scale Augmented) |
-| **`palm_resting`** | 309 | **100%** 🛡️ | **74%** | **0.85** | 100% Precision Against False Wrist/Skin Rustles |
-| **`typing`** | 624 | **83%** | **84%** | **0.84** | Multi-Sensor Quartz Hardware Guard Backed |
-| **`noise`** | 616 | **86%** | **74%** | **0.79** | High-Pass Spectral Isolation ($> 2,500\text{ Hz}$) |
-| **TOTAL** | **10,214** | **90.2% Accuracy** | — | — | **Saved to `model_2d.pkl`** |
+| **`double_left_palm`** | 3,000 | **0.88** | **0.90** | **0.89** | High-SNR Left Tap Detection |
+| **`double_right_palm`** | 3,000 | **0.87** | **0.83** | **0.85** | Aluminum Chassis Damped Right Tap Detection |
+| **`noise_and_typing`** | 7,127 | **0.95** 🛡️ | **0.96** 🛡️ | **0.95** | High Immunity to Background Reels / TV / Typing Noise |
+| **TOTAL** | **13,127** | **98.8% CV** | **91.3% Unseen Test** | — | **Saved to `model_double_tap.pkl`** |
 
 ---
 
-## 🏆 Head-to-Head Architecture Comparison
-
-| Model Architecture | Overall Accuracy | Left Palm Recall | Right Palm Recall | Training Time |
-| :--- | :---: | :---: | :---: | :---: |
-| 1D FFT Spectrum (Traditional) | 82.2% | 88.6% | 88.5% | 144.4s |
-| **2D STFT Spectrogram (MORSE)** | **84.1% - 90.2% 🏆** | **94.0% 🏆** | **100.0% 🏆** | 185.5s |
-
----
-
-## ⚖️ 3x Scale Augmentation & Dataset Equilibrium
-To solve $30\text{cm}$ unibody aluminum damping for Right Palm Taps without boosting live mic noise floor at runtime:
-* **`right_palm_rest` 3x Scale Augmentation:** Generates $1.25\times$ and $0.80\times$ amplitude-scaled copies ($3,657$ samples).
-* **`left_palm_rest` 1.5x Scale Augmentation:** Generates $1.15\times$ scale copies ($3,370$ samples).
-* **Dual Format Support:** `utils.py` loads both `.npy` and `.wav` audio files seamlessly.
+## 🏆 Key Metrics Summary
+* **5-Fold Cross-Validation Accuracy:** **98.8%** (with 0.8x–1.2x amplitude variations)
+* **Zero-Leakage Unseen Test Accuracy:** **91.27%** (raw sample split *before* feature extraction/augmentation)
+* **Feature Dimension:** **3,730-D Spatial Feature Space**
+* **Inference Latency:** **~0.3ms (<0.3% CPU load)**
 
 Back to [[Morse - Master Hub]]
+

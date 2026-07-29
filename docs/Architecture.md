@@ -27,33 +27,11 @@ Morse is built on a **Cascaded Multi-Sensor Two-Stage Architecture** designed fo
                  [ Candidate Double-Tap Captured ]
                                │
                                ▼
-┌─────────────────────────────────────────────────────────────┐
-│            STAGE 2: 2D Spectrogram AI Classifier            │
-│     (Triggered ONLY on candidate taps to classify edge cases)│
-│                                                             │
-│  - 1,935-Pixel 2D STFT Spectrogram Image Grid (129x15)       │
-│  - HistGradientBoosting Spatial Classifier (model_2d.pkl)   │
-│  - 94% Left Recall | 100% Right Recall | 100% Skin Immunity │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                 Native macOS Action Engine                  │
-│       (Smart WhatsApp Toggle, Apple Music, System Mute)     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## Multi-Sensor Hardware Guards (`hardware_guards.py`)
-* Hooks natively into macOS CoreGraphics `Quartz` `CGEventTap` thread.
-* Drops audio events occurring within $450\text{ms}$ of keyboard keypresses (`kCGEventKeyDown`) or $400\text{ms}$ of trackpad interaction (`kCGEventLeftMouseDown`, etc.) at 0% CPU.
-
-## Stage 1: 2D STFT DSP Engine
-* Evaluates 100% of incoming 48.0 kHz audio blocks in real-time.
-* Filters out **90%+** of room noise, speech, speaker music, and ambient noise.
-* Uses **Pre-Impact Baseline Surge Ratio ($\frac{E_{\text{impact}}}{E_{\text{pre-30ms}}}$)** to catch damped Right Palm Taps submerged in background noise.
-
-## Stage 2: 2D Spectrogram AI Classifier (`model_2d.pkl`)
+## Stage 2: 3,730-D Spatial Acoustic AI Classifier (`model_double_tap.pkl`)
 * Awakens ONLY when Stage 1 captures a candidate tap impulse.
-* Evaluates the $1,935\text{-pixel}$ 2D Spectrogram image grid ($129 \text{ frequency bins} \times 15 \text{ time frames}$) in $35\mu\text{s}$ to classify spatial location (`[LEFT]` vs `[RIGHT]`).
+* Evaluates the **3,730-dimensional spatial acoustic feature matrix** (2D STFT spectrogram image grid + 1st & 2nd order STFT transient dynamics $\Delta$ & $\Delta\Delta$ + 10 physical/spatial scalar ratios including 120-600Hz structural resonance, >2500Hz metal ping energy, Spectral Centroid, Onset Attack Slope, and Mechanical Dispersion Ratio).
+* **Hardware Validation:** Cross-validated on **MacBook Air** and **MacBook Neo** aluminum unibody hardware.
+* **Performance:** Executes inference in **~0.3ms (<0.3% CPU overhead)** on macOS Apple Silicon.
 
 Back to [[Morse - Master Hub]]
+
