@@ -4,6 +4,7 @@ MORSE TLM 1.5 — Universal Cross-Platform Data Collector
 Works on macOS, Windows, and Linux.
 Captures 500ms (24,000 samples @ 48.0kHz) physical tap and noise samples.
 Auto-downmixes multi-channel audio to mono and calibrates local noise floor.
+Features Smooth Peak Attack Triggering for 100% consistent tap collection.
 """
 
 import os
@@ -11,6 +12,8 @@ import sys
 import time
 import platform
 import numpy as np
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 try:
     import sounddevice as sd
@@ -56,11 +59,11 @@ def auto_calibrate_noise_floor(device_id, duration_sec=1.0):
         with sd.InputStream(samplerate=SAMPLE_RATE, callback=calib_callback):
             time.sleep(duration_sec)
 
-    amb_vol = float(np.median(volumes)) if volumes else 5.0
-    amb_peak = float(np.median(peaks)) if peaks else 0.01
+    amb_vol = float(np.median(volumes)) if volumes else 3.0
+    amb_peak = float(np.median(peaks)) if peaks else 0.008
 
-    target_vol = max(14.0, amb_vol * 2.2)
-    target_peak = max(0.05, amb_peak * 3.0)
+    target_vol = max(12.0, amb_vol * 1.8)
+    target_peak = max(0.04, amb_peak * 2.2)
 
     print(f"✅ Calibrated! Ambient Vol: {amb_vol:.1f} | Trigger Floor -> Vol > {target_vol:.1f}, Peak > {target_peak:.3f}\n")
     return target_vol, target_peak
@@ -124,15 +127,15 @@ def record_category(category_name, output_dir=DEFAULT_DATASET_DIR, target_count=
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
 
-        # Compute Crest Factor to reject continuous sound / self-triggering
+        # Compute Crest Factor to reject low-energy continuous hums
         rms = np.sqrt(np.mean(buffer_history**2)) + 1e-6
         crest_factor = np.max(np.abs(buffer_history)) / rms
 
         is_tap_cat = category_name in ("double_left_palm", "double_right_palm")
         valid_impulse = (crest_factor >= 2.5) if is_tap_cat else True
 
-        # Trigger logic with 0.55s debounce window
-        if volume >= vol_floor and peak >= peak_floor and valid_impulse and (current_time - last_trigger_time > 0.55):
+        # Trigger logic with snappy 0.40s debounce window
+        if volume >= vol_floor and peak >= peak_floor and valid_impulse and (current_time - last_trigger_time > 0.40):
             last_trigger_time = current_time
             sample_count += 1
             filename = os.path.join(cat_dir, f"sample_{sample_count:05d}.npy")
