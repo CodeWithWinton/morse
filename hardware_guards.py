@@ -1,6 +1,15 @@
+"""
+MORSE TLM 1.5 — Universal Cross-Platform Hardware Guards
+=========================================================
+macOS: Quartz CGEventTap (keyboard, trackpad, Fn toggle, speaker detection)
+Windows/Linux: Graceful no-op fallback (guards disabled, DSP + ML still protect)
+"""
 import time
 import threading
 import sys
+import platform
+
+PLATFORM = platform.system()
 
 last_keypress_time = 0.0
 last_trackpad_time = 0.0
@@ -8,7 +17,9 @@ _listener_started = False
 engine_paused = False
 _last_fn_press_time = 0.0
 
-def _event_tap_worker():
+
+def _event_tap_worker_macos():
+    """macOS-only Quartz CGEventTap listener."""
     global last_keypress_time, last_trackpad_time, engine_paused, _last_fn_press_time
     try:
         from Quartz import (
@@ -21,7 +32,7 @@ def _event_tap_worker():
             kCFAllocatorDefault, kCFRunLoopCommonModes, CFMachPortCreateRunLoopSource,
             CGEventGetIntegerValueField, kCGKeyboardEventKeycode
         )
-        
+
         mask = (
             (1 << kCGEventKeyDown) |
             (1 << kCGEventFlagsChanged) |
@@ -41,15 +52,12 @@ def _event_tap_worker():
         def callback(proxy, event_type, event, refcon):
             global last_keypress_time, last_trackpad_time, engine_paused, _last_fn_press_time
             now = time.time()
-            
+
             if event_type == kCGEventFlagsChanged:
                 from Quartz import CGEventGetFlags
                 flags = CGEventGetFlags(event)
                 keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode)
-                
-                # Check for Fn key (keycode 63 OR kCGEventFlagMaskSecondaryFn 0x800000)
                 is_fn_event = (keycode == 63) or bool(flags & 0x00800000)
-                
                 if is_fn_event and (now - _last_fn_press_time) > 0.35:
                     _last_fn_press_time = now
                     engine_paused = not engine_paused
@@ -69,95 +77,101 @@ def _event_tap_worker():
             return event
 
         tap = CGEventTapCreate(
-            kCGSessionEventTap,
-            kCGHeadInsertEventTap,
-            0,  # Listen-only / passive event tap
-            mask,
-            callback,
-            None
+            kCGSessionEventTap, kCGHeadInsertEventTap, 0, mask, callback, None
         )
-        
+
         if tap:
             source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
             CFRunLoopAddSource(CFRunLoopGetCurrent(), source, kCFRunLoopCommonModes)
             print("🛡️  [Quartz Guard] Keyboard & Trackpad event listener ACTIVE!")
             CFRunLoopRun()
         else:
-            print("\n⚠️  [Quartz Warning] CGEventTap failed to initialize. Enable Terminal in System Settings -> Privacy & Security -> Accessibility for keyboard suppression.")
+            print("\n⚠️  [Quartz Warning] CGEventTap failed. Enable Terminal in Privacy & Security -> Accessibility.")
     except Exception as e:
         print(f"\n⚠️  [Quartz Warning] CGEventTap Error: {e}")
 
+
 def start_guards():
-    """Start background hardware event listener thread."""
+    """Start background hardware event listener thread (macOS only, no-op on other platforms)."""
     global _listener_started
-    if not _listener_started:
-        _listener_started = True
-        t = threading.Thread(target=_event_tap_worker, daemon=True)
+    if _listener_started:
+        return
+    _listener_started = True
+
+    if PLATFORM == "Darwin":
+        t = threading.Thread(target=_event_tap_worker_macos, daemon=True)
         t.start()
+    else:
+        # ponytail: Windows/Linux keyboard guard not implemented yet.
+        # DSP 4-Pillar Shield + 82% ML confidence floor still protect against false positives.
+        print("🛡️  [Hardware Guard] Keyboard/Trackpad guard not available on this platform (DSP + ML guards active)")
+
 
 def is_engine_paused():
-    """Check if MORSE engine is currently paused by Fn key toggle."""
     return engine_paused
 
+
 def is_typing_active(current_time=None, window_sec=1.50):
-    """Check if a physical keypress occurred within the active typing window (increased to 1.50s)."""
     if current_time is None:
         current_time = time.time()
     return (current_time - last_keypress_time) < window_sec
 
+
 def is_trackpad_active(current_time=None, window_sec=1.00):
-    """Check if a trackpad click/drag/scroll occurred within active window (1.00s)."""
     if current_time is None:
         current_time = time.time()
     return (current_time - last_trackpad_time) < window_sec
 
+
 _speaker_active_cache = False
 _last_speaker_check_time = 0.0
 
+
 def is_speaker_output_active():
-    """
-    Check if MacBook speakers are actively playing audio (e.g. YouTube, Spotify, Apple Music).
-    Uses lightweight non-blocking system state check (cached for 0.5s to maintain 0% CPU overhead).
-    """
+    """Check if speakers are playing audio. macOS only; returns False on other platforms."""
     global _speaker_active_cache, _last_speaker_check_time
     now = time.time()
     if (now - _last_speaker_check_time) < 0.5:
         return _speaker_active_cache
 
     _last_speaker_check_time = now
+
+    if PLATFORM != "Darwin":
+        _speaker_active_cache = False
+        return False
+
     try:
         import subprocess
-        # Check system volume setting; if muted, speaker is not active
-        res = subprocess.run(["osascript", "-e", "output volume of (get volume settings)"], capture_output=True, text=True, timeout=0.08)
+        res = subprocess.run(["osascript", "-e", "output volume of (get volume settings)"],
+                             capture_output=True, text=True, timeout=0.08)
         if res.returncode == 0:
             vol = int(res.stdout.strip())
             if vol == 0:
                 _speaker_active_cache = False
                 return False
-        # Check if media applications (Music, Spotify, QuickTime, Chrome YouTube) are playing
-        res_apps = subprocess.run(["pgrep", "-x", "Music|Spotify|com.apple.audio.ComponentResult"], capture_output=True, text=True, timeout=0.08)
+        res_apps = subprocess.run(["pgrep", "-x", "Music|Spotify|com.apple.audio.ComponentResult"],
+                                  capture_output=True, text=True, timeout=0.08)
         _speaker_active_cache = (res_apps.returncode == 0)
     except Exception:
         _speaker_active_cache = False
 
     return _speaker_active_cache
 
+
 if __name__ == "__main__":
     print("====================================")
     print("   MORSE - Hardware Event Guard Test")
     print("====================================")
-    print("🛡️ Starting Quartz CGEventTap listener...")
+    print(f"🖥️ Platform: {PLATFORM}")
     start_guards()
-    print("Press Ctrl+C to exit. Try typing or clicking your trackpad!\n")
+    print("Press Ctrl+C to exit.\n")
     try:
         while True:
-            t_active = is_typing_active()
-            m_active = is_trackpad_active()
             status = []
-            if t_active: status.append("⌨️ TYPING ACTIVE")
-            if m_active: status.append("🖱️ TRACKPAD ACTIVE")
+            if is_typing_active(): status.append("⌨️ TYPING")
+            if is_trackpad_active(): status.append("🖱️ TRACKPAD")
             if status:
-                print(f"\r🛡️ Status: {' | '.join(status)}", end="", flush=True)
+                print(f"\r🛡️ {' | '.join(status)}", end="", flush=True)
             time.sleep(0.1)
     except KeyboardInterrupt:
-        print("\n👋 Stopped Hardware Event Guard test.")
+        print("\n👋 Stopped.")

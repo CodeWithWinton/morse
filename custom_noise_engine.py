@@ -11,7 +11,7 @@ class CustomChassisNoiseEngine:
     Design Goals:
     1. Preserve Kinetic Metallic Impulses (80-600 Hz chassis resonance + 2.5k-3.5k Hz metal ping).
     2. Suppress Continuous Background Noise (fan hum, AC noise, TV speech, room hiss).
-    3. MacBook Speaker Shield: Suppress internal speaker audio (YouTube, Spotify, music)
+    3. Laptop Speaker Shield: Suppress internal speaker audio (YouTube, Spotify, music)
        via Kinetic-vs-Speaker Impact Ratio Analysis.
     4. Strict CPU Target: < 0.15ms execution time per 350ms frame (< 0.9% CPU overhead).
     """
@@ -30,7 +30,7 @@ class CustomChassisNoiseEngine:
         """
         Calculates Kinetic-vs-Speaker Impact Ratio.
         Physical Palm Taps: Heavy sub-300Hz metallic deck impact (Ratio >= 1.8).
-        MacBook Speaker Playback: High mid/high driver energy (Ratio <= 0.6).
+        Laptop Speaker Playback: High mid/high driver energy (Ratio <= 0.6).
         """
         signal = sig.flatten()
         if len(signal) == 0:
@@ -129,7 +129,7 @@ class CustomChassisNoiseEngine:
         if is_impulse:
             clean_mag[metal_crisp_ping_mask] = magnitude[metal_crisp_ping_mask]
 
-        # Rule C: If MacBook speakers are playing music/YouTube, attenuate vocal/instrument mids (500Hz - 2.2kHz)
+        # Rule C: If laptop speakers are playing music/YouTube, attenuate vocal/instrument mids (500Hz - 2.2kHz)
         if self.speaker_active:
             clean_mag[speaker_vocals_mask] *= 0.20
 

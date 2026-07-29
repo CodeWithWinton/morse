@@ -30,11 +30,22 @@ def extract_features(signal, original_rate=None):
     return fft_vals
 
 def find_builtin_mic():
-    """Find and return the hardware device ID for built-in microphone."""
+    """Find and return the hardware device ID for built-in microphone on any laptop."""
     devices = sd.query_devices()
+    # Search patterns that match built-in mics across all OEMs (Mac, Dell, HP, Lenovo, Asus, etc.)
+    mic_keywords = ["built-in", "macbook", "internal", "microphone array", "realtek", "integrated"]
     for i, dev in enumerate(devices):
-        if dev['max_input_channels'] > 0 and ("built-in" in dev['name'].lower() or "macbook" in dev['name'].lower()):
-            return i, dev['name']
+        if dev['max_input_channels'] > 0:
+            name_lower = dev['name'].lower()
+            if any(kw in name_lower for kw in mic_keywords):
+                return i, dev['name']
+    # Fallback: use system default input device
+    try:
+        default_in = sd.default.device[0]
+        if default_in is not None and default_in >= 0:
+            return default_in, devices[default_in]['name']
+    except Exception:
+        pass
     return None, "Default Microphone"
 
 def compute_mel_filterbank(n_fft=256, n_mels=20, sample_rate=48000, fmin=100.0, fmax=3500.0):
@@ -81,10 +92,16 @@ def extract_lean_305_features(signal, original_rate=None, n_fft=256, hop_length=
             sig
         )
         
-    # Position-Invariant Peak Alignment: Center peak impact at sample 4800 (100ms into 500ms window)
+    # Position-Invariant Peak Alignment: Center on FIRST impulse peak (Tap 1 Anchor) at sample 4800
     target_samples = 24000
     if len(sig) > 0:
-        peak_idx = np.argmax(np.abs(sig))
+        abs_sig = np.abs(sig)
+        max_p = np.max(abs_sig)
+        if max_p > 1e-4:
+            first_peaks = np.where(abs_sig >= max_p * 0.45)[0]
+            peak_idx = first_peaks[0] if len(first_peaks) > 0 else np.argmax(abs_sig)
+        else:
+            peak_idx = 0
         start_idx = max(0, peak_idx - 4800)
         sig = sig[start_idx:start_idx + target_samples]
         
@@ -242,6 +259,28 @@ def extract_2d_spectrogram(signal, original_rate=None, n_fft=256, hop_length=128
     # Append 8 Physical Features (306 features total) to 2D Spectrogram Array
     phys_features = np.array([bass_ratio, hp_ratio, centroid / 10000.0, rolloff / 10000.0, zcr, flatness, pitch / 10000.0, dispersion_ratio])
     return np.concatenate([flattened_spec, phys_features])
+
+def compute_pitch_salience(sig):
+    """
+    Calculate Autocorrelation Pitch Salience (R_xx peak ratio).
+    Musical notes and singing (Sa Re Ga Ma / Do Re Mi) exhibit strong periodic pitch salience (R_xx > 0.40).
+    Physical unibody chassis taps are transient non-periodic impulses (R_xx < 0.15).
+    """
+    signal = sig.flatten()
+    if len(signal) == 0:
+        return 0.0
+    norm_sig = signal - np.mean(signal)
+    var = np.sum(norm_sig**2) + 1e-6
+    autocorr = np.correlate(norm_sig, norm_sig, mode='full')
+    autocorr = autocorr[len(autocorr)//2:] / var
+    
+    # Search for periodic pitch peaks in the 80Hz - 1000Hz vocal/musical range (48 to 600 samples)
+    min_lag = int(SAMPLE_RATE / 1000)  # 48 samples
+    max_lag = int(SAMPLE_RATE / 80)    # 600 samples
+    if len(autocorr) > max_lag:
+        pitch_salience = np.max(autocorr[min_lag:max_lag])
+        return float(pitch_salience)
+    return 0.0
 
 def compute_vibration_trail_ratio(sig):
     """

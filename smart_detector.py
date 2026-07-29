@@ -4,11 +4,12 @@ import pickle
 import time
 import sys
 import os
+import platform
 import actions
 
 import hardware_guards
 from haptic_feedback import fire_double_tap_confirmation
-from utils import extract_lean_305_features, apply_medium_thud_dsp_filter, compute_vibration_trail_ratio, count_impulse_peaks, find_builtin_mic, SAMPLE_RATE
+from utils import extract_lean_305_features, apply_medium_thud_dsp_filter, compute_vibration_trail_ratio, count_impulse_peaks, compute_pitch_salience, find_builtin_mic, SAMPLE_RATE
 from custom_noise_engine import CustomChassisNoiseEngine
 
 # 500ms Double-Tap Window for snappy physical double-taps matching 97.5% TLM model
@@ -43,8 +44,9 @@ def main():
     print("🤖 Stage 1 DSP Window + Stage 2 TLM 1.5 Tap Classifier (500ms Native Window) Active")
     print("🎧 Custom In-House Noise & Speaker Shield Active (<0.9% CPU, Zero Tap Loss)")
     print("🛡️ Multi-Sensor Guards: Keyboard, Trackpad & Control Key Toggle Active")
-    print("🔊 Audio Feedback: macOS bubble sound (Bottle.aiff) confirmation enabled")
-    print("💬 Actions: Left Double-Tap = Toggle WhatsApp | Right Double-Tap = Play/Pause Music")
+    print(f"🖥️ Platform: {platform.system()} {platform.machine()}")
+    print("🔊 Audio Feedback: Native system confirmation sound enabled")
+    print("💬 Actions: Left Double-Tap = Toggle WhatsApp | Right Double-Tap = Media Play/Pause")
     print("🎙️  Listening to chassis... (Double-tap left or right metal palm rest!)")
     print("Press Ctrl+C to stop.\n")
     
@@ -55,16 +57,17 @@ def main():
 
     def callback(indata, frames, time_info, status):
         nonlocal last_action_time, buffer_history, ambient_history, dynamic_threshold
-        sig = indata.flatten()
+        # Universal multi-channel downmix (stereo -> mono for Windows/Linux hardware)
+        sig = np.mean(indata, axis=1) if indata.ndim > 1 and indata.shape[1] > 1 else indata.flatten()
         volume = np.linalg.norm(sig) * 10
         current_time = time.time()
 
         # Dynamic Noise Floor Auto-Adaptation (Zero Calibration Needed!)
-        if volume < 15.0:
+        if volume < 10.0:
             ambient_history.append(volume)
             if len(ambient_history) > 30:
                 ambient_history.pop(0)
-            dynamic_threshold = max(2.2, np.median(ambient_history) * 2.4)
+            dynamic_threshold = max(1.8, np.median(ambient_history) * 1.8)
 
         # Maintain rolling 350ms window (16,800 samples)
         buffer_history = np.roll(buffer_history, -len(sig))
@@ -87,17 +90,24 @@ def main():
                     print("   🖱️  [MORSE GUARD] TRACKPAD BLOCKED (Active trackpad shield)")
                 return
 
-            # Check if MacBook speaker output is active (YouTube, Spotify, Music)
+            # Check if laptop speaker output is active (YouTube, Spotify, Music)
             spk_active = hardware_guards.is_speaker_output_active()
             noise_engine.set_speaker_active(spk_active)
             
             # 2. Process Custom Noise Cancellation & Speaker Shield Engine
             clean_buffer, noise_stats = noise_engine.process_frame(buffer_history)
             
-            # Transient Crest Factor Shield: Require Peak/RMS >= 3.0 to reject continuous sounds
-            if noise_stats["crest_factor"] < 2.8:
+            # Transient Crest Factor Shield: Require Peak/RMS >= 2.2 to reject continuous sounds
+            if noise_stats["crest_factor"] < 2.2:
                 if "--debug" in sys.argv:
-                    print(f"   [🛡️ Crest Factor Shield Block: {noise_stats['crest_factor']:.2f} < 2.8 (Continuous Speech / Music)]")
+                    print(f"   [🛡️ Crest Factor Shield Block: {noise_stats['crest_factor']:.2f} < 2.2 (Continuous Speech / Music)]")
+                return
+
+            # Universal Pitch Salience Shield: Reject ALL pitched instruments & vocals (Guitar, Piano, Flute, Synths, Vocals) with R_xx > 0.40
+            pitch_salience = compute_pitch_salience(buffer_history)
+            if pitch_salience > 0.40:
+                if "--debug" in sys.argv:
+                    print(f"   [🛡️ Universal Pitch Salience Shield Block: {pitch_salience:.2f} > 0.40 (Instrument / Vocal Note)]")
                 return
 
             # 3. Stage 1 Impulse Gate: Verify physical impact peak presence
@@ -109,9 +119,9 @@ def main():
 
             # 4. Compute Physical Mechanical Dispersion Ratio on RAW mic buffer
             dispersion_ratio = compute_vibration_trail_ratio(buffer_history)
-            if dispersion_ratio < 0.14:
+            if dispersion_ratio < 0.12:
                 if "--debug" in sys.argv:
-                    print(f"   [🛡️ Physical Fallback Block: Dispersion Ratio {dispersion_ratio:.3f} < 0.14 (Air Snap/Lid Click)]")
+                    print(f"   [🛡️ Physical Fallback Block: Dispersion Ratio {dispersion_ratio:.3f} < 0.12 (Air Snap/Lid Click)]")
                 return
 
             # Extract 310 features directly from RAW mic buffer (100% 1:1 match with model training)
@@ -129,9 +139,15 @@ def main():
             frame_0_energy = np.sum([features[m * 15] for m in range(20)]) + 1e-6
             onset_ratio = float((mel_4_frame_0 + mel_9_frame_0) / frame_0_energy)
 
-            # 5. High-Precision Thresholding (94.0% for both Left and Right taps)
-            min_required_conf = 94.0
+            # 5. Dynamic Thresholding (82.0% for ultra-soft tap sensitivity down to Vol 12)
+            min_required_conf = 82.0
             
+            # Mic Proximity Guard: If onset_ratio >= 0.025, high-frequency onset energy proves tap was 5cm from mic (Left Palm Rest)
+            if predicted_label == "double_right_palm" and onset_ratio >= 0.025:
+                if "--debug" in sys.argv:
+                    print(f"   [🛡️ Mic Proximity Override: Onset Ratio {onset_ratio:.3f} >= 0.025 (Left Mic Proximity Confirmed)]")
+                predicted_label = "double_left_palm"
+
             if predicted_label in ("double_left_palm", "double_right_palm") and confidence >= min_required_conf:
                 last_action_time = current_time
                 buffer_history.fill(0.0)
@@ -142,14 +158,13 @@ def main():
                     print("💬 Executing Action: SMART WHATSAPP TOGGLE (OPEN / HIDE)\n")
                     actions.trigger_whatsapp()
                 elif predicted_label == "double_right_palm":
-                    # Extend lockout to 2.80s for media toggles to shield against speaker audio initialization surge
-                    last_action_time = current_time + 1.30
+                    last_action_time = current_time + 1.20
                     print(f"\n✌️ DOUBLE-TAP (RIGHT)! (ML Conf: {confidence:.1f}%, Onset Ratio: {onset_ratio:.3f}, Vol: {volume:.1f})")
-                    print("🎵 Executing Action: APPLE MUSIC PLAY / PAUSE\n")
-                    actions.trigger_apple_music_playpause()
+                    print("🎵 Executing Action: MEDIA PLAY / PAUSE\n")
+                    actions.trigger_media_playpause()
 
     try:
-        with sd.InputStream(device=builtin_device_id, samplerate=SAMPLE_RATE, channels=1, callback=callback):
+        with sd.InputStream(device=builtin_device_id, samplerate=SAMPLE_RATE, callback=callback):
             while True:
                 sd.sleep(1000)
     except KeyboardInterrupt:
