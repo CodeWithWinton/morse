@@ -281,6 +281,27 @@ def push_contributions(local_folder="dataset_double_taps", contributor_name=None
         print(f" 🌐 View at: https://huggingface.co/datasets/{HF_DATASET_REPO}/tree/main/{target_repo_path}")
         return True
     except Exception as e:
+        err_str = str(e)
+        if "401" in err_str or "Invalid username or password" in err_str or "authenticated" in err_str:
+            print("\n🔑 Hugging Face Authentication Required for Push!")
+            print(" Get your write token at: https://huggingface.co/settings/tokens")
+            token = input(" Enter your Hugging Face Write Token (hf_...): ").strip()
+            if token:
+                try:
+                    api_authed = HfApi(token=token)
+                    api_authed.upload_folder(
+                        folder_path=local_folder,
+                        path_in_repo=target_repo_path,
+                        repo_id=HF_DATASET_REPO,
+                        repo_type="dataset",
+                        commit_message=commit_msg
+                    )
+                    print(f"\n ✅ Contribution pushed to Hugging Face with Write Token!")
+                    print(f" 🌐 View at: https://huggingface.co/datasets/{HF_DATASET_REPO}/tree/main/{target_repo_path}")
+                    return True
+                except Exception as retry_err:
+                    print(f"❌ Retry failed: {retry_err}")
+                    return False
         print(f"❌ Upload failed: {e}")
         print("💡 Tip: Run 'huggingface-cli login' or set HF_TOKEN environment variable.")
         return False
