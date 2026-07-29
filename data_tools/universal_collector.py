@@ -32,7 +32,7 @@ def get_default_input_device():
         default_in = sd.default.device[0]
         if default_in is not None and default_in >= 0:
             dev_info = devices[default_in]
-            return default_in, dev_info['name']
+            return dev_info.get('index', default_in), dev_info['name']
     except Exception:
         pass
     return None, "Default Input Microphone"
@@ -45,28 +45,22 @@ def auto_calibrate_noise_floor(device_id, duration_sec=1.0):
     peaks = []
 
     def calib_callback(indata, frames, time_info, status):
-        sig = indata.flatten()
+        sig = np.mean(indata, axis=1) if indata.ndim > 1 else indata.flatten()
         volumes.append(np.linalg.norm(sig) * 10)
         peaks.append(np.max(np.abs(sig)))
 
     try:
-        with sd.InputStream(device=device_id, channels=1, samplerate=SAMPLE_RATE, callback=calib_callback):
+        with sd.InputStream(device=device_id, samplerate=SAMPLE_RATE, callback=calib_callback):
             time.sleep(duration_sec)
     except Exception:
-        # Fallback for devices that require multi-channel input
-        def calib_cb_multi(indata, frames, time_info, status):
-            sig = np.mean(indata, axis=1) if indata.ndim > 1 else indata.flatten()
-            volumes.append(np.linalg.norm(sig) * 10)
-            peaks.append(np.max(np.abs(sig)))
-
-        with sd.InputStream(device=device_id, samplerate=SAMPLE_RATE, callback=calib_cb_multi):
+        with sd.InputStream(samplerate=SAMPLE_RATE, callback=calib_callback):
             time.sleep(duration_sec)
 
     amb_vol = float(np.median(volumes)) if volumes else 5.0
     amb_peak = float(np.median(peaks)) if peaks else 0.01
 
-    target_vol = max(12.0, amb_vol * 2.0)
-    target_peak = max(0.04, amb_peak * 2.5)
+    target_vol = max(14.0, amb_vol * 2.2)
+    target_peak = max(0.05, amb_peak * 3.0)
 
     print(f"✅ Calibrated! Ambient Vol: {amb_vol:.1f} | Trigger Floor -> Vol > {target_vol:.1f}, Peak > {target_peak:.3f}\n")
     return target_vol, target_peak
@@ -79,6 +73,7 @@ def record_category(category_name, output_dir=DEFAULT_DATASET_DIR, target_count=
 
     existing_files = [f for f in os.listdir(cat_dir) if f.endswith(".npy")]
     sample_count = len(existing_files)
+    session_files = []
 
     os_name = platform.system()
     dev_id, dev_name = get_default_input_device()
@@ -88,20 +83,20 @@ def record_category(category_name, output_dir=DEFAULT_DATASET_DIR, target_count=
     print("==========================================================================")
     print(f" 💻 Hardware: [{dev_id}] {dev_name}")
     print(f" 📂 Destination: {os.path.abspath(cat_dir)}")
-    print(f" 📊 Current Samples: {sample_count} / {target_count}")
+    print(f" 📊 Existing Samples: {sample_count} / Target: {target_count}")
 
     if category_name == "double_left_palm":
         print(" 👉 Action: Perform DOUBLE-TAPS on the LEFT metal palm rest.")
     elif category_name == "double_right_palm":
         print(" 👉 Action: Perform DOUBLE-TAPS on the RIGHT metal palm rest.")
     else:
-        print(" 👉 Action: Perform TYPING, DESK BUMPSI, WRIST SLIDES, or AMBIENT NOISE.")
+        print(" 👉 Action: Perform TYPING, DESK BUMPS, WRIST SLIDES, or AMBIENT NOISE.")
 
-    print(" ⏹️ Press Ctrl+C to stop collecting and return to menu.\n")
+    print(" ⏹️ Press Ctrl+C to stop collecting and choose whether to keep session samples.\n")
 
     if category_name == "noise_and_typing":
-        vol_floor = 3.0
-        peak_floor = 0.01
+        vol_floor = 4.0
+        peak_floor = 0.015
     else:
         vol_floor, peak_floor = auto_calibrate_noise_floor(dev_id, duration_sec=1.0)
 
@@ -109,7 +104,7 @@ def record_category(category_name, output_dir=DEFAULT_DATASET_DIR, target_count=
     last_trigger_time = 0.0
 
     def stream_callback(indata, frames, time_info, status):
-        nonlocal sample_count, last_trigger_time, buffer_history
+        nonlocal sample_count, last_trigger_time, buffer_history, session_files
 
         # Downmix multi-channel stereo to 1D mono safely across all hardware
         if indata.ndim > 1 and indata.shape[1] > 1:
@@ -125,22 +120,44 @@ def record_category(category_name, output_dir=DEFAULT_DATASET_DIR, target_count=
         buffer_history = np.roll(buffer_history, -len(sig))
         buffer_history[-len(sig):] = sig
 
+        # Compute Crest Factor to reject continuous sound / self-triggering
+        rms = np.sqrt(np.mean(buffer_history**2)) + 1e-6
+        crest_factor = np.max(np.abs(buffer_history)) / rms
+
+        # Tap categories require a physical impulse peak (crest_factor >= 2.5) to avoid false self-triggering!
+        is_tap_cat = category_name in ("double_left_palm", "double_right_palm")
+        valid_impulse = (crest_factor >= 2.5) if is_tap_cat else True
+
         # Trigger logic with 0.55s debounce window
-        if volume >= vol_floor and peak >= peak_floor and (current_time - last_trigger_time > 0.55):
+        if volume >= vol_floor and peak >= peak_floor and valid_impulse and (current_time - last_trigger_time > 0.55):
             last_trigger_time = current_time
             sample_count += 1
             filename = os.path.join(cat_dir, f"sample_{sample_count:05d}.npy")
             np.save(filename, buffer_history.copy())
+            session_files.append(filename)
 
-            sys.stdout.write(f"\r  ✅ [{sample_count:04d}/{target_count}] Captured -> {os.path.basename(filename)} (Vol: {volume:.1f}, Peak: {peak:.3f})")
-            sys.stdout.flush()
+            # Print each capture on its OWN SEPARATE LINE
+            print(f"  ✅ [{sample_count:05d}/{target_count}] Captured -> {os.path.basename(filename)} (Vol: {volume:.1f}, Peak: {peak:.3f}, Crest: {crest_factor:.1f})")
 
     try:
         with sd.InputStream(device=dev_id, samplerate=SAMPLE_RATE, callback=stream_callback):
             while True:
                 time.sleep(0.1)
     except KeyboardInterrupt:
-        print(f"\n\n🛑 Paused collection for '{category_name}'. Total saved: {sample_count} samples.\n")
+        print(f"\n\n⏹️ Session stopped for '{category_name}'. Captured {len(session_files)} new samples this session.")
+        if session_files:
+            ans = input("❓ Keep these new session samples? (Y/n): ").strip().lower()
+            if ans == "n":
+                for fpath in session_files:
+                    if os.path.exists(fpath):
+                        try:
+                            os.remove(fpath)
+                        except Exception:
+                            pass
+                print(f"🗑️ Discarded {len(session_files)} session samples!")
+            else:
+                print(f"💾 Kept {len(session_files)} new session samples!")
+        print()
 
 
 def run_interactive_collector(output_dir=DEFAULT_DATASET_DIR):
