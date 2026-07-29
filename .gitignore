@@ -3,6 +3,9 @@ __pycache__/
 *.py[codz]
 *$py.class
 quarantine/
+*.h5
+*.zip
+dataset_double_taps/
 
 # C extensions
 *.so
